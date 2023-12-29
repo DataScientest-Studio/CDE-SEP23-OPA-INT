@@ -1,0 +1,11 @@
+{
+  "websocket_type_commet": "Use async to use BinanceSocketManager, otherwise ThreadedWebsocketManager is used",
+  "websocket_type": "async",
+  "use_demo_account": "False",
+  "api_key_demo": "N17QNtKJF26Uc663zoxenuVyLO3KyWyiAOCOu4Z15NT6xqbrSFFfYi3jUdu7qvIq",
+  "api_key_secret_demo": "wQaYNV1hHLPsdRMl8qB5Ks1e4zeRFXPkceasUgISSLRaehs4SThr7BtNcw0BP533",
+  "coin_to_trade": "ETH",
+  "fiat_curr": "USDT",
+  "l_coins": ["BTC","LTC","ETH","NEO","BNB"]
+
+}
