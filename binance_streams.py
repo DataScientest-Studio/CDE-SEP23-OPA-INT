@@ -3,7 +3,7 @@ import asyncio
 import pandas as pd
 
 # Define which keys to keep from streams
-keys_candles = ["t","o", "h", "l", "c", "V"]
+keys_candles = ["t", "o", "h", "l", "c", "V"]
 key_agg_trades = ["a", "p", "q", "f", "l", "T"]
 colnames_agg_trades = ["AggTradeID","Price","Quantity","FirstTradeID","LastTradeID","Timestamp"]
 def ask_exit(signame, loop):
@@ -21,7 +21,6 @@ async def get_kline_data(bsm,api_key, api_secret, symbol):
 
     with open("kline_data.txt", "a") as file:
         file.write(df_recent.to_string(header=False, index=False))
-
     symbol_multi_socket = symbol.lower() + '@kline_1m'
     async with bsm.multiplex_socket([symbol_multi_socket]) as stream:
         while True:
