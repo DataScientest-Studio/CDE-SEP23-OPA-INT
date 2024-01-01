@@ -6,3 +6,7 @@ connect_sockets.py
 functions_testing.py
 kline_data.txt
 aggr_trades.txt
+
+*.iml
+*.pyc
+.idea/
