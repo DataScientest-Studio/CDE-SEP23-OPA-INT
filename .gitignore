@@ -1,5 +1,4 @@
 # Ignore key files
-*.txt
 async_2.py
 async_socket.py
 connect_sockets.py
