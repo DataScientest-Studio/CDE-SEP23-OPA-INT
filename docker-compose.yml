@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  # binance_connector:
+  #   build: .
+  #   depends_on:
+  #     - db
+
+  db:
+    container_name: postgres
+    image: postgres
+    restart: always
+    user: postgres
+    environment:
+      POSTGRES_USER: db_user
+      POSTGRES_PASSWORD: pgpassword123
+      POSTGRES_DB: opa_db      
+    ports:
+      - "5432:5432"  # Maps port 5432 on the host to port 5432 in the container
+    volumes:
+      - db_data:/var/lib/postgresql/data  # Persistent data storage
+
+volumes:
+  db_data:
+    name: db_data
