@@ -1,0 +1,71 @@
+{
+  "websocket_type_commet": "Use async to use BinanceSocketManager, otherwise ThreadedWebsocketManager is used",
+  "websocket_type": "async",
+  "db_conn": "postgresql://db_user:pgpassword123@localhost/opa_db",
+  "use_demo_account": "False",
+  "api_key_demo": "N17QNtKJF26Uc663zoxenuVyLO3KyWyiAOCOu4Z15NT6xqbrSFFfYi3jUdu7qvIq",
+  "api_key_secret_demo": "wQaYNV1hHLPsdRMl8qB5Ks1e4zeRFXPkceasUgISSLRaehs4SThr7BtNcw0BP533",
+  "coin_to_trade": "ETH",
+  "fiat_curr": "USDT",
+  "l_coins": [   "BTC",    "LTC",    "ETH",    "NEO",    "BNB"  ],
+  "tables": {
+    "klines": {
+      "filename_output": "kline_data.txt",
+      "range_start_cols": 0,
+      "range_end_cols": 7,
+      "separate_table_for_recent_data": "True",
+      "data_model": {
+          "colnames": ["cndle_time_open", "cndle_price_open", "cndle_price_high", "cndle_price_low",
+            "cndle_price_close", "cndle_volume", "cndle_time_close", "quote_asset_volume", "number_of_trades",
+            "taker_buy_base_asset_volume", "Taker_buy_quote_asset_volume"],
+          "columns_to_keep": ["cndle_time_open", "cndle_price_open", "cndle_price_high", "cndle_price_low",
+            "cndle_price_close", "cndle_volume", "cndle_time_close"],
+          "columns_conversion": ["to_datetime","","","","", "", "to_datetime"],
+          "columns_data_type":["int","float","float","datetime","varchar2(10)"],
+          "columns_add_info": ["NOT NULL", "NOT NULL", "NOT NULL", "NOT NULL", ""],
+          "primary_key": ["cndle_time_open","cndle_time_close"],
+          "foreign_keys_to_add": ["cndle_symbol_id"],
+          "foreign_keys": ["cndle_symbol_id REFERENCES symbols(symb_symbol_id)"]
+      }
+    },
+    "aggr_trades": {
+      "filename_output": "aggr_trades.txt",
+      "range_start_cols": 0,
+      "range_end_cols": 6,
+      "data_model_comment": "results from get_aggregate_trades",
+      "separate_table_for_recent_data": "True",
+      "data_model": {
+          "colnames": ["aggtr_id", "aggtr_price", "aggrtr_quantity","first_trade_id","last_trade_id", "aggrtr_time",
+            "aggrtr_is_buyer_maker", "was_best_price_match"],
+          "columns_to_keep": ["aggtr_id", "aggtr_price", "aggrtr_quantity", "aggrtr_time", "aggrtr_is_buyer_maker"],
+          "columns_conversion": ["","","","to_datetime",""],
+          "columns_data_type":["integer","float","float","datetime","varchar2(10)"],
+          "columns_add_info": ["NOT NULL", "NOT NULL", "NOT NULL", "NOT NULL", ""],
+          "primary_key": ["id"],
+          "foreign_keys_to_add": ["aggtr_symbol_id"],
+          "foreign_keys": ["(aggtr_symbol_id) REFERENCES symbols(symbl_symbol_id)"]
+      }
+    },
+    "derived_kpis": {
+      "data_model_comment": "results for derived KPIs such as Moving Averages",
+      "separate_table_for_recent_data": "True",
+      "data_model": {
+        "colnames": ["dvkpi_timestamp","dvkpi_symbol_id","dvkpi_kpi", "dvkpi_kpi_value"],
+        "column_data_type": ["datetime","varchar2(50)","varchar2(20)", "float"],
+        "primary_key": ["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi"],
+        "foreign_keys": ["(dvkpi_symbol_id) REFERENCES symbols(symbl_symbol_id)"]
+      }
+    },
+    "symbols": {
+      "data_model_comment": "Static Data on Symbols",
+      "separate_table_for_recent_data": "False",
+      "data_model": {
+        "colnames": ["symbl_symbol_id","symbl_symbol_text","symbl_symbol_fiat_cur", "symbl_symbol_crypto"],
+        "column_data_type": ["datetime","varchar2(50)","varchar2(20)", "varchar2(20)"],
+        "columns_add_info": ["NOT NULL", "NOT NULL"],
+        "primary_key": ["symbl_symbol_id"]
+      }
+    }
+
+  }
+}
