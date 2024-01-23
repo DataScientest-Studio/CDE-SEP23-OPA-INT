@@ -25,4 +25,10 @@ https://www.binance.com/en/support/faq/how-to-download-historical-market-data-on
     ```docker-compose down -v```
 
 
+## Deliverables
+
+2. For the second deliverable after creating the db one can check the 10 first rows on the db tables on:
+```python db_tester.py```
+
+
 ![NAVIGATE THE DB TREE](image.png)
