@@ -7,7 +7,7 @@ from binance.client import Client
 
 import binance_recent_data
 import binance_streams
-import db_driver
+import load_data
 
 # used: https://algotrading101.com/learn/binance-python-api-guide/
 # https://readthedocs.org/projects/python-binance/downloads/pdf/latest/
@@ -56,8 +56,8 @@ else:
     f.close()
 
 #Startup DB config
-db_url = settings['db_conn']
-db_driver.create_kline_table_if_not_exists(db_url)
+load_data.create_db()
+
 
 # TODO: "build function that inserts historical data to database and checks whether already available"
 # TODO: "get data from database"

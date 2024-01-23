@@ -8,6 +8,9 @@
   "coin_to_trade": "ETH",
   "fiat_curr": "USDT",
   "l_coins": [   "BTC",    "LTC",    "ETH",    "NEO",    "BNB"  ],
+  "aggregate_trades_table": "f_aggr_trades",
+  "klines_table": "f_klines",
+  "symbols_table": "d_symbols",
   "tables": {
     "klines": {
       "filename_output": "kline_data.txt",
