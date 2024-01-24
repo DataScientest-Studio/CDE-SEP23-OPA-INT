@@ -14,10 +14,7 @@ def handle_binance_recent_data(filename_output, api_key, api_secret, symbol, ran
 
     return data_return;
 
-def query_binance(api_key, api_secret, symbol):
-    bin_client = Client(api_key, api_secret)
-    resulting_df = pd.DataFrame(bin_client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_1MINUTE, limit=1000))
-    return resulting_df
+
 
 def write_data_to_file(filename_output, queried_df, range_start_cols, range_end_cols):
     try:
