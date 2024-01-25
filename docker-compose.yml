@@ -19,6 +19,18 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data  # Persistent data storage
 
+  pgadmin:
+    container_name: pgadmin4
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"  
+    depends_on:
+      - db
+
 volumes:
   db_data:
     name: db_data
