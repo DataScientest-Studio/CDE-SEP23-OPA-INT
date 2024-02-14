@@ -26,7 +26,7 @@ def fix_kleine_dataset(df, symbol):
         'number_of_trades': 'int'
     })
 
-    df['symbol'] = symbol
+    df['symbol_id'] = symbol
 
     return df
 
@@ -48,7 +48,7 @@ def fix_trades_dataset(df, symbol):
         "is_buyer_maker": 'int'
     })
 
-    df['symbol'] = symbol
+    df['symbol_id'] = symbol
 
     return df
 
