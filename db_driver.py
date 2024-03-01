@@ -1,10 +1,14 @@
 from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, Boolean, MetaData, TIMESTAMP, inspect, \
-    insert, select
+    insert, select, PrimaryKeyConstraint, ForeignKey
 
 
 def create_db(db_url):
     engine = create_engine(db_url)
     metadata = MetaData()
+
+    symbols_table = Table('d_symbols', metadata,
+                          Column('symbol_id', Integer, primary_key=True, autoincrement=True),
+                          Column('symbol', String))
 
     kline_table = Table('f_klines', metadata,
                         Column('start_time', TIMESTAMP(timezone=True)),
@@ -15,20 +19,26 @@ def create_db(db_url):
                         Column('volume', Numeric),
                         Column('close_time', TIMESTAMP(timezone=True)),
                         Column('number_of_trades', Integer),
-                        Column('symbol', String)
+                        Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
+                        PrimaryKeyConstraint('start_time', 'close_time', name='kline_pk')
                         )
 
     trades_table = Table('f_aggr_trades', metadata,
-                            Column('agg_trade_id', Integer),
+                         Column('agg_trade_id', Integer, primary_key=True),
                          Column('price', Numeric),
                          Column('quantity', Numeric),
                          Column('transact_time', TIMESTAMP(timezone=True)),
                          Column('is_buyer_maker', Numeric),
-                         Column('symbol', String)
+                         Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id'))
                          )
 
-    symbols_table = Table('d_symbols', metadata,
-                          Column('symbol', String))
+    dvkpi_table = Table('f_dvkpi', metadata,
+                        Column('dvkpi_kpi', String),
+                        Column('dvkpi_kpi_value', Numeric),
+                        Column('timestamp', TIMESTAMP(timezone=True)),
+                        Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
+                        PrimaryKeyConstraint('timestamp', 'dvkpi_kpi', 'symbol_id', name='dvkpi_pk')
+                        )
 
     inspector = inspect(engine)
     if not inspector.has_table('kline_data'):
