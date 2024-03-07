@@ -8,10 +8,7 @@ from binance.client import Client
 import binance_recent_data
 import binance_streams
 import load_data
-
-# used: https://algotrading101.com/learn/binance-python-api-guide/
-# https://readthedocs.org/projects/python-binance/downloads/pdf/latest/
-# https://binance-docs.github.io/apidocs/spot/en/#exchange-information
+import ml_train
 
 settings_file_name = "settings.json"
 
@@ -36,6 +33,10 @@ def load_settings(settings_file_name):
 settings = load_settings(settings_file_name)
 coin = settings["coin_to_trade"]
 fiat_curr = settings["fiat_curr"]
+symbol_txt = coin + fiat_curr
+load_historical_data = settings["load_data"]["load_historical"]
+recreate_tables = settings["load_data"]["recreate_tables"]
+train_ml = settings["model_fitting"]["train_ml"]
 
 # get Credentials
 if settings["use_demo_account"]:
@@ -55,28 +56,27 @@ else:
     api_sec = creden.split('\n')[1]
     f.close()
 
-#Startup DB config
-load_data.create_db()
+# Startup DB config
+if recreate_tables == "True":
+    load_data.create_db()
+#TODO create function to look up symbol_id and pass it to the loading functions
 
+# Load historical data from Disk if not yet available in database
+if load_historical_data == "True":
+    load_data.load_historical_data(api_key, api_sec)
+
+# If yes, Machine Learning Model is (re)trained
+if train_ml == "True":
+    ml_train.get_data(settings["db_conn"], settings["kpi_table"])
 
 # TODO: "build function that inserts historical data to database and checks whether already available"
-# TODO: "get data from database"
 
 # Get Recent Data
 l_data_type = ["klines", "aggr_trades"]
-symbol_txt = coin + fiat_curr
-dict_frames = {}
 
-# Data is Stored in txt file on disk and returned to df (in-memory)
-for data_type in l_data_type:
-    filename_output = settings[data_type]["filename_output"]
-    range_start_col = settings[data_type]["range_start_cols"]
-    range_end_col = settings[data_type]["range_end_cols"]
-    df_res = binance_recent_data.handle_binance_recent_data(filename_output=filename_output, api_key=api_key,
-                                                 api_secret=api_sec, symbol=symbol_txt,
-                                                 range_start_cols=range_start_col, range_end_cols=range_end_col,
-                                                 db_conn=db_url, data_type=data_type)
-    dict_frames[data_type] = df_res
+# Create derived KPIs
+#load_data.create_derived_kpis()
+dict_df_res = load_data.load_recent_data(api_key, api_sec)
 
 # Retrieve Data Stream
 if settings["websocket_type"] != "async":

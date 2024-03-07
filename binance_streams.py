@@ -76,7 +76,7 @@ async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
     await client.close_connection()
 
 
-def run_main(api_key, api_secret, coin="ETH", fiat_curr="USDT", flag_use_demo_acc=True):
+def run_main(api_key, api_secret, coin="ETH", fiat_curr="EUR", flag_use_demo_acc=True):
     return asyncio.run(main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc))
 
 # if __name__ == "__main__":
