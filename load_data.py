@@ -139,7 +139,7 @@ def load_recent_data(api_key, api_sec):
 
 
     for data_type in l_data_type:
-        print("Fetching data on aggregate trades for today, please wait")
+        print(f"Fetching data on {data_type} for today, please wait")
         df_res = binance_recent_data.handle_binance_recent_data(filename_output=None, api_key=api_key,
                                                                 api_secret=api_sec, symbol=symbol_txt,
                                                                 data_type=data_type,
@@ -159,34 +159,38 @@ def load_recent_data(api_key, api_sec):
     return dict_frames
 
 
-def create_derived_kpis():
+# Function creates derived KPIs either database or from df_klines
+def create_derived_kpis(df_klines=None):
     db_url = Settings.get_setting("db_conn")
     symbol = Settings.get_setting("coin_to_trade") + Settings.get_setting("fiat_curr")
     # look up symbol_id
     symbol_id =1
     approximate_avg_price = Settings.get_setting("approximate_avg_price")
-    db_driver.create_derived_kpis(db_url, symbol_id, approximate_avg_price)
+    result_avg_klines = db_driver.create_derived_kpis(db_url, symbol_id, approximate_avg_price, df_klines)
 
     # Exponentially weighted Moving Average
-    ti.ewma(db_url, "ETHEUR", 50) #symbol_id = 1
-    ti.ewma(db_url, "ETHEUR", 200)  # symbol_id = 1
-    ti.ewma(db_url, "ETHEUR", 250)  # symbol_id = 1
+    ewma_50 = ti.ewma(db_url, "ETHEUR", 50, result_avg_klines) #symbol_id = 1
+    ewma_200 = ti.ewma(db_url, "ETHEUR", 200, result_avg_klines)  # symbol_id = 1
+    ewma_250 = ti.ewma(db_url, "ETHEUR", 250, result_avg_klines)  # symbol_id = 1
 
     #Simple Moving average
-    ti.simple_ma(db_url, "ETHEUR", 50)  # symbol_id = 1
-    ti.simple_ma(db_url, "ETHEUR", 200)  # symbol_id = 1
-    ti.simple_ma(db_url, "ETHEUR", 250)  # symbol_id = 1
+    sma_50 = ti.simple_ma(db_url, "ETHEUR", 50, result_avg_klines)  # symbol_id = 1
+    sma_200 = ti.simple_ma(db_url, "ETHEUR", 200, result_avg_klines)  # symbol_id = 1
+    sma_250 = ti.simple_ma(db_url, "ETHEUR", 250, result_avg_klines)  # symbol_id = 1
 
     #RSI
-    ti.rsi(db_url, "ETHEUR", 20)
-    ti.rsi(db_url, "ETHEUR", 50)
-    ti.rsi(db_url, "ETHEUR", 100)
+    rsi_20 = ti.rsi(db_url, "ETHEUR", 20, result_avg_klines)
+    rsi_50 =ti.rsi(db_url, "ETHEUR", 50, result_avg_klines)
+    rsi_100 =ti.rsi(db_url, "ETHEUR", 100, result_avg_klines)
 
     #Force Index
-    ti.force_index(db_url, "ETHEUR", 20)
-    ti.force_index(db_url, "ETHEUR", 50)
-    ti.force_index(db_url, "ETHEUR", 100)
-
+    fi_20 = ti.force_index(db_url, "ETHEUR", 20, result_avg_klines)
+    fi_50 = ti.force_index(db_url, "ETHEUR", 50, result_avg_klines)
+    fi_100 = ti.force_index(db_url, "ETHEUR", 100, result_avg_klines)
+    if df_klines is None:
+        return None
+    else:
+        return pd.concat([ewma_50, ewma_200, ewma_250, sma_50, sma_200, sma_250, rsi_20, rsi_50, rsi_100, fi_20, fi_50, fi_100], axis=1)
 def get_min_and_max_dates(db_url, table_name):
     engine = create_engine(db_url)
     min_date_numeric = None

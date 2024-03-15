@@ -51,6 +51,24 @@ def create_db(db_url, create_dimensions_first=False):
                              PrimaryKeyConstraint('dvkpi_timestamp', 'dvkpi_symbol_id', 'dvkpi_kpi', name='pk_kpis')
                              )
 
+        dvkpis_table = Table('f_dvkpi', metadata,
+                                Column('dvkpi_timestamp', TIMESTAMP(timezone=True)),
+                             Column('dvkpi_symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
+                             Column('dvkpi_kpi', String),
+                             Column('dvkpi_kpi_value', Numeric),
+                             PrimaryKeyConstraint('dvkpi_timestamp', 'dvkpi_symbol_id', 'dvkpi_kpi', name='pk_kpis')
+                             )
+
+
+        models_table = Table('d_models', metadata,
+                                Column('model_timestamp', TIMESTAMP(timezone=True)),
+                             Column('model_id', Integer),
+                             Column('model_active', String),
+                             Column('model_filename', String),
+                             Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
+                             PrimaryKeyConstraint('model_id', 'symbol_id', name='pk_models')
+                             )
+
 
     inspector = inspect(engine)
     #TODO extend check to other tables
@@ -90,16 +108,19 @@ def insertTableData(db_url, table_name, data):
             trans.rollback()
 
 
-def create_derived_kpis(db_url, symbol_id, approximate_avg_price):
+def create_derived_kpis(db_url, symbol_id, approximate_avg_price, df_klines):
     engine = create_engine(db_url, echo=True)
 
     # Calculate average prices first
     with engine.connect() as connection:
         try:
             if approximate_avg_price == "True":
-                klines = Table("f_klines", MetaData(), autoload_with=engine)
-                stmt = select(klines)
-                result = connection.execute(stmt)
+                if df_klines is None:
+                    klines = Table("f_klines", MetaData(), autoload_with=engine)
+                    stmt = select(klines)
+                    result = connection.execute(stmt)
+                else:
+                    result = df_klines
                 result_df = pd.DataFrame(result)
                 result_df = result_df.reset_index()
                 result_df["dvkpi_kpi_value"] = result_df[["open_price", "close_price"]].mean(axis=1)
@@ -107,12 +128,13 @@ def create_derived_kpis(db_url, symbol_id, approximate_avg_price):
                 result_df["dvkpi_symbol_id"] = symbol_id
                 result_df = result_df[["start_time","close_time", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]]
                 result_df.columns = ["start_time","dvkpi_timestamp", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]
-                result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value"]]
+                result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"]]
                 #replace NaN with None
                 result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
 
 
             else:
+                #TODO add join based on local dataframe (df_klines) if df_klines is not None
                 klines = Table("f_klines", MetaData(), autoload_with=engine)
                 aggrtrades = Table("f_aggr_trades", MetaData(), autoload_with=engine)
                 query = (
@@ -128,7 +150,7 @@ def create_derived_kpis(db_url, symbol_id, approximate_avg_price):
                 result_df["dvkpi_kpi"] = "AVG_PRICE"
                 result_df["dvkpi_symbol_id"] = symbol_id
                 result_df.columns = ["start_time","dvkpi_timestamp", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]
-                result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value"]]
+                result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"]]
                 #replace NaN with None
                 result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
 
@@ -136,7 +158,10 @@ def create_derived_kpis(db_url, symbol_id, approximate_avg_price):
         except Exception as e:
             print(f"Error calculating average prices for derived KPIs: {e}")
 
-
+    if df_klines is None:
+        return None
+    else:
+        return result_df
 
 def getFirstTenRows(db_url, table_name):
     engine = create_engine(db_url, echo=True)

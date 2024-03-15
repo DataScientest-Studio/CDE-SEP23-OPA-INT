@@ -10,7 +10,7 @@ import binance_streams
 import load_data
 import ml_train
 
-settings_file_name = "settings.json"
+
 
 def btc_trade_history(msg):
     ''' define how to process incoming WebSocket messages '''
@@ -30,6 +30,7 @@ def load_settings(settings_file_name):
 
 
 # Read Settings
+settings_file_name = "settings.json"
 settings = load_settings(settings_file_name)
 coin = settings["coin_to_trade"]
 fiat_curr = settings["fiat_curr"]
@@ -61,28 +62,42 @@ if recreate_tables == "True":
     load_data.create_db()
 #TODO create function to look up symbol_id and pass it to the loading functions
 
-# Load historical data from Disk if not yet available in database
+# Load historical data if not yet available in database
+# Historical data can be loaded from disk (fast) or through API calls (slow
 if load_historical_data == "True":
     load_data.load_historical_data(api_key, api_sec)
 
-# If yes, Machine Learning Model is (re)trained
+
+# If train_ml is True, Machine Learning Model is (re)trained and a new model is stored on disk and metadata in database
 if train_ml == "True":
     ml_train.get_data(settings["db_conn"], settings["kpi_table"])
 
-# TODO: "build function that inserts historical data to database and checks whether already available"
+
 
 # Get Recent Data
 l_data_type = ["klines", "aggr_trades"]
 
 # Create derived KPIs
+#TODO move this into the load_recent_data or get historical data function
 #load_data.create_derived_kpis()
-dict_df_res = load_data.load_recent_data(api_key, api_sec)
 
+# get Recent data (klines and aggr_trades), recent = since noon today
+dict_df_res = load_data.load_recent_data(api_key, api_sec)
+df_kpis = load_data.create_derived_kpis(dict_df_res["klines"])
+
+#TODO: LOAD Latest Machine Learning Model and apply data to it
+# --> when this is done apply data from stream to model
+#TODO write model_id to databse table and read it at this point to get the correct filename!
+model_file_name = "model.h5"
+scaler_file_name = "min_max_scaler.bin"
+decision = ml_train.get_investment_decision(model_file_name, dict_df_res, scaler_file_name)
+
+#TODO: concatenate previous data frame with stream and make investment decision
 # Retrieve Data Stream
 if settings["websocket_type"] != "async":
     bin_client = Client(api_key, api_sec, testnet=flag_use_demo_acc)
     # print(bin_client.get_account())
-    print("Welcome")
+    #print("Welcome")
     print("Your Account balance: ", bin_client.get_asset_balance(asset='BTC'))
     # Latest btc price
     btc_price = bin_client.get_symbol_ticker(symbol="BTCUSDT")

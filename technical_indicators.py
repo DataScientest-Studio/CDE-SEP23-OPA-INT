@@ -4,37 +4,46 @@ import pandas as pd
 import numpy as np
 import db_driver as dbd
 
-def ewma(db_url, symbol_id, n_periods):
+def ewma(db_url, symbol_id, n_periods, df_klines=None):
 
     engine = create_engine(db_url)
     with engine.connect() as connection:
         try:
-            avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-            #TODO: add filter on symbol_id
-            query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
-            # Execute the query and fetch the results
-            result = connection.execute(query)
+            if df_klines is None:
+                avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
+                #TODO: add filter on symbol_id
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                # Execute the query and fetch the results
+                result = connection.execute(query)
+            else:
+                result = df_klines
+
             result_df = pd.DataFrame(result)
             result_df["dvkpi_kpi"] = "EWMA_" + str(n_periods)
             ewma = pd.Series(result_df["dvkpi_kpi_value"].ewm(span = n_periods, min_periods = n_periods-1).mean(), name ='EWMA_' + str(n_periods))
             result_df = pd.concat([result_df[["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi"]],ewma], axis=1)
             result_df.columns = ["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi", "dvkpi_kpi_value"]
             result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
-            dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
+            if df_klines is None:
+                dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
 
         except Exception as e:
             print(f"Error calculating exponential moving averages: {e}")
+    return result_df
 
-
-def simple_ma(db_url, symbol_id, n_periods):
+def simple_ma(db_url, symbol_id, n_periods, df_klines=None):
     engine = create_engine(db_url)
     with engine.connect() as connection:
         try:
-            avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-            # TODO: add filter on symbol_id
-            query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
-            # Execute the query and fetch the results
-            result = connection.execute(query)
+            if df_klines is None:
+                avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
+                # TODO: add filter on symbol_id
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                # Execute the query and fetch the results
+                result = connection.execute(query)
+            else:
+                result = df_klines
+
             result_df = pd.DataFrame(result)
             result_df["dvkpi_kpi"] = "MA_" + str(n_periods)
             sma = pd.Series(result_df["dvkpi_kpi_value"].rolling(n_periods).mean(),
@@ -42,22 +51,26 @@ def simple_ma(db_url, symbol_id, n_periods):
             result_df = pd.concat([result_df[["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi"]], sma], axis=1)
             result_df.columns = ["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi", "dvkpi_kpi_value"]
             result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
-            dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
+            if df_klines is None:
+                dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
 
         except Exception as e:
             print(f"Error calculating simple moving averages: {e}")
+    return result_df
 
-
-def rsi(db_url, symbol_id, periods=14):
+def rsi(db_url, symbol_id, periods=14, df_klines=None):
 
     engine = create_engine(db_url)
     with engine.connect() as connection:
         try:
-            avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-            # TODO: add filter on symbol_id
-            query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
-            # Execute the query and fetch the results
-            result = connection.execute(query)
+            if df_klines is None:
+                avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
+                # TODO: add filter on symbol_id
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                # Execute the query and fetch the results
+                result = connection.execute(query)
+            else:
+                result = df_klines
             result_df = pd.DataFrame(result)
             # filter out rows where price = None
             result_df = result_df[result_df[['dvkpi_kpi_value']].notnull().all(1)]
@@ -77,26 +90,30 @@ def rsi(db_url, symbol_id, periods=14):
             result_df = pd.concat([result_df[["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi"]], rsi_s], axis=1)
             result_df.columns = ["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi", "dvkpi_kpi_value"]
             result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
-            dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
+            if df_klines is None:
+                dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
 
         except Exception as e:
             print(f"Error calculating RSI: {e}")
+    return result_df
 
-
-def force_index(db_url, symbol_id, n_periods=50):
+def force_index(db_url, symbol_id, n_periods=50, df_klines=None):
 
     engine = create_engine(db_url)
     with engine.connect() as connection:
         try:
-            avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-            klines = Table("f_klines", MetaData(), autoload_with=engine)
+            if df_klines is None:
+                avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
+                klines = Table("f_klines", MetaData(), autoload_with=engine)
 
-            # TODO: add filter on symbol_id
-            query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
-            # Execute the query and fetch the results
-            result = connection.execute(query)
+                # TODO: add filter on symbol_id
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                # Execute the query and fetch the results
+                result = connection.execute(query)
+            else:
+                result = df_klines
+
             result_df = pd.DataFrame(result)
-
             # TODO: add filter on symbol_id
             query = select(klines).where((klines.c.symbol_id == 1))
             # Execute the query and fetch the results
@@ -112,7 +129,9 @@ def force_index(db_url, symbol_id, n_periods=50):
             result_df = pd.concat([result_df[["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi"]], fi], axis=1)
             result_df.columns = ["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi", "dvkpi_kpi_value"]
             result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
-            dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
+            if df_klines is None:
+                dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
 
         except Exception as e:
             print(f"Error calculating Force Index: {e}")
+    return result_df
