@@ -12,11 +12,12 @@ def ewma(db_url, symbol_id, n_periods, df_klines=None):
             if df_klines is None:
                 avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
                 #TODO: add filter on symbol_id
-                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'
+                                                  and avg_prices.c.symbol_id == symbol_id))
                 # Execute the query and fetch the results
                 result = connection.execute(query)
             else:
-                result = df_klines
+                result = df_klines.copy(deep=True)
 
             result_df = pd.DataFrame(result)
             result_df["dvkpi_kpi"] = "EWMA_" + str(n_periods)
@@ -38,11 +39,12 @@ def simple_ma(db_url, symbol_id, n_periods, df_klines=None):
             if df_klines is None:
                 avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
                 # TODO: add filter on symbol_id
-                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'
+                                                  and avg_prices.c.symbol_id == symbol_id))
                 # Execute the query and fetch the results
                 result = connection.execute(query)
             else:
-                result = df_klines
+                result = df_klines.copy(deep=True)
 
             result_df = pd.DataFrame(result)
             result_df["dvkpi_kpi"] = "MA_" + str(n_periods)
@@ -66,11 +68,13 @@ def rsi(db_url, symbol_id, periods=14, df_klines=None):
             if df_klines is None:
                 avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
                 # TODO: add filter on symbol_id
-                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE' and avg_prices.c.symbol_id ==
+                                                  symbol_id))
                 # Execute the query and fetch the results
                 result = connection.execute(query)
             else:
-                result = df_klines
+                result = df_klines.copy(deep=True)
+
             result_df = pd.DataFrame(result)
             # filter out rows where price = None
             result_df = result_df[result_df[['dvkpi_kpi_value']].notnull().all(1)]
@@ -104,17 +108,17 @@ def force_index(db_url, symbol_id, n_periods=50, df_klines=None):
         try:
             if df_klines is None:
                 avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-                klines = Table("f_klines", MetaData(), autoload_with=engine)
-
                 # TODO: add filter on symbol_id
-                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'))
+                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE' and avg_prices.c.symbol_id
+                                                  == symbol_id))
                 # Execute the query and fetch the results
                 result = connection.execute(query)
             else:
-                result = df_klines
+                result = df_klines.copy(deep=True)
 
             result_df = pd.DataFrame(result)
-            # TODO: add filter on symbol_id
+
+            klines = Table("f_klines", MetaData(), autoload_with=engine)
             query = select(klines).where((klines.c.symbol_id == 1))
             # Execute the query and fetch the results
             result = connection.execute(query)
@@ -123,7 +127,8 @@ def force_index(db_url, symbol_id, n_periods=50, df_klines=None):
             result_df = result_df.merge(klines_df, how='left', left_on = 'dvkpi_timestamp', right_on='close_time')
 
 
-            fi = pd.Series(result_df["dvkpi_kpi_value"].diff(n_periods) * result_df["volume"], name='FI_' + str(n_periods))
+            fi = pd.Series(result_df["dvkpi_kpi_value"].diff(n_periods) * result_df["volume"],
+                           name='FI_' + str(n_periods))
 
             result_df["dvkpi_kpi"] = "FI_" + str(n_periods)
             result_df = pd.concat([result_df[["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi"]], fi], axis=1)

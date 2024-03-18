@@ -1,6 +1,10 @@
+import time
+
 import pandas as pd
 import numpy as np
-import tensorflow as tf
+
+from datetime import datetime
+from settings import Settings
 from pyspark.sql import SparkSession
 from pyspark import SparkContext
 from sklearn.preprocessing import MinMaxScaler
@@ -45,7 +49,7 @@ def timeseries_preprocessing(scaled_train, scaled_test, lags):
 
 
 
-def get_data(db_url, table_name):
+def get_data(db_url, table_name, symbol_id=1):
     #TODO: migrate ml solution to spark and Docker
     #spark = build_spark()
     #table_name = "d_symbols"
@@ -80,11 +84,20 @@ def get_data(db_url, table_name):
     model.add(LSTM(256, input_shape=(X_train.shape[1], 1)))
     model.add(Dense(1))
     model.compile(optimizer='adam', loss='mse')
-    #model.save('model.h5')
+
     fitted_model = model.fit(x=X_train, y=Y_train, epochs=5, validation_data=(X_test, Y_test), shuffle=False)
-    #store to disk
-    model.save('./models/model2.keras')
-    dump(scaler, './models/min_max_scaler2.bin', compress=True)
+
+    model_datetimestamp ="lstm_" + str(datetime.now().strftime("%Y%m%d_%H_%M"))
+    model_name = "lstm_model" + model_datetimestamp + ".keras"
+    scaler_name = "lstm_scaler" + model_datetimestamp + ".bin"
+
+    #log model in database
+    insert_model_to_db(model_name, 'Y', symbol_id)
+
+    # store model and scaler to disk
+    model.save('./models/' + model_name)
+    dump(scaler, './models/' + scaler_name, compress=True)
+
     #Y_predicted=scaler.inverse_transform(model.predict(X_test))
 
     #Y_true = scaler.inverse_transform(Y_test.reshape(Y_test.shape[0], 1))
@@ -102,11 +115,59 @@ def get_data(db_url, table_name):
     #Y_predicted = scaler.inverse_transform(model.predict(X_test))
     #Y_true = scaler.inverse_transform(Y_test.reshape(Y_test.shape[0], 1))
 
-def get_investment_decision(model_file_name, X, scaler_file_name):
+
+def get_transformed_data(df_data, scaler, lags=10):
+    scaled_data = scaler.transform(df_data)
+    X = []
+    for t in range(len(scaled_data) - lags - 1):
+        X.append(scaled_data[t:(t + lags), 0])
+
+    return X
+
+
+def get_predicted_data(model_file_name, X, scaler_file_name):
     model = load_model("./models/" + model_file_name)
     scaler = load("./models/" + scaler_file_name)
-    #TODO: write function that transforms input data and scales
-    X = X.reshape((X.shape[0], X.shape[1], 1))
-    Y_pred = model.predict(X)
+    lags = model.input_shape[1]
+    X.drop_duplicates(inplace=True)
+    X = X.pivot(index='dvkpi_timestamp', columns="dvkpi_kpi", values='dvkpi_kpi_value')
+    X_scaled = get_transformed_data(pd.DataFrame(X.iloc[:,0]), scaler, lags)
+    Y_pred = model.predict(pd.DataFrame(X_scaled))
     Y_pred = scaler.inverse_transform(Y_pred)
     return Y_pred
+
+#TODO: write actual function on investment decision
+def make_investment_decision(Y_pred):
+    return "BUY" if Y_pred[0] > 0 else "SELL"
+
+def get_valid_model(db_url, symbol_id=1):
+    engine = create_engine(db_url, echo=False)
+
+    with engine.connect() as connection:
+        try:
+            tab_models = Table("d_models", MetaData(), autoload_with=engine)
+            stmt = select(tab_models.c.model_filename).where(tab_models.c.model_active == 'Y' and tab_models.c.symbol_id == symbol_id)
+            result = connection.execute(stmt)
+            model_file_name = pd.DataFrame(result).values[0]
+            return model_file_name
+        except Exception as e:
+            print(f"Error retrieving model from database: {e}")
+
+def insert_model_to_db(model_file_name, model_active, symbol_id=1):
+    db_url = Settings.get_setting("db_conn")
+    engine = create_engine(db_url)
+
+    with engine.connect() as connection:
+        try:
+            tab_models = Table("d_models", MetaData(), autoload_with=engine)
+            stmt = select(tab_models.c.model_id)
+            result = connection.execute(stmt)
+            model_id = max(pd.Series(result)) + 1 if result is not None else 1
+            ins = insert(tab_models).values(model_timestamp= datetime.now(),
+                                       model_id = model_id,
+                                       model_active=model_active,
+                                       model_filename=model_file_name,
+                                       symbol_id=symbol_id)
+            connection.execute(ins)
+        except Exception as e:
+            print(f"Error inserting model to database: {e}")

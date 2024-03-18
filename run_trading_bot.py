@@ -38,6 +38,7 @@ symbol_txt = coin + fiat_curr
 load_historical_data = settings["load_data"]["load_historical"]
 recreate_tables = settings["load_data"]["recreate_tables"]
 train_ml = settings["model_fitting"]["train_ml"]
+db_url = settings["db_conn"]
 
 # get Credentials
 if settings["use_demo_account"]:
@@ -58,39 +59,39 @@ else:
     f.close()
 
 # Startup DB config
+
 if recreate_tables == "True":
     load_data.create_db()
-#TODO create function to look up symbol_id and pass it to the loading functions
+
+#get symbol_id
+symbol_id = load_data.load_symbol_id(symbol_txt)
+
 
 # Load historical data if not yet available in database
-# Historical data can be loaded from disk (fast) or through API calls (slow
+# Historical data can be loaded from disk (fast) or through API calls (slow)
 if load_historical_data == "True":
-    load_data.load_historical_data(api_key, api_sec)
+    load_data.load_historical_data(api_key, api_sec, symbol_id)
+    load_data.create_derived_kpis()
 
 
 # If train_ml is True, Machine Learning Model is (re)trained and a new model is stored on disk and metadata in database
 if train_ml == "True":
-    ml_train.get_data(settings["db_conn"], settings["kpi_table"])
+    ml_train.get_data(settings["db_conn"], settings["kpi_table"], symbol_id)
 
 
 
 # Get Recent Data
 l_data_type = ["klines", "aggr_trades"]
 
-# Create derived KPIs
-#TODO move this into the load_recent_data or get historical data function
-#load_data.create_derived_kpis()
-
 # get Recent data (klines and aggr_trades), recent = since noon today
-dict_df_res = load_data.load_recent_data(api_key, api_sec)
-df_kpis = load_data.create_derived_kpis(dict_df_res["klines"])
+dict_df_res = load_data.load_recent_data(api_key, api_sec, symbol_id)
 
-#TODO: LOAD Latest Machine Learning Model and apply data to it
-# --> when this is done apply data from stream to model
-#TODO write model_id to databse table and read it at this point to get the correct filename!
-model_file_name = "model.h5"
-scaler_file_name = "min_max_scaler.bin"
-decision = ml_train.get_investment_decision(model_file_name, dict_df_res, scaler_file_name)
+# TODO: apply ML model to data from stream
+model_file_name = ml_train.get_valid_model(db_url, symbol_id)[0]
+scaler_file_name = model_file_name.replace("model", "scaler").replace("keras", "bin")
+df_input_prediction = load_data.create_derived_kpis(dict_df_res["klines"], symbol_id)
+y_pred = ml_train.get_predicted_data(model_file_name, df_input_prediction, scaler_file_name)
+inv_decision = ml_train.make_investment_decision(y_pred)
 
 #TODO: concatenate previous data frame with stream and make investment decision
 # Retrieve Data Stream
@@ -112,10 +113,4 @@ if settings["websocket_type"] != "async":
     bsm.stop()
 else:
     # from streamz import Stream
-    # stream = Stream()
-    # stream.map(query).accumulate(aggregate, start=0)
     binance_streams.run_main(api_key, api_sec, coin, fiat_curr, flag_use_demo_acc)
-    # TODO: concatenate data frames
-
-# line only inserted as debug point, has no value
-settings = load_settings(settings_file_name)

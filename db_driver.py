@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, Boolean, MetaData, TIMESTAMP, inspect, \
-    insert, select, text, PrimaryKeyConstraint, ForeignKey
+    insert, select, text, PrimaryKeyConstraint, ForeignKey, func
 import pandas as pd
 import numpy as np
 
@@ -31,6 +31,21 @@ def create_db(db_url, create_dimensions_first=False):
                             PrimaryKeyConstraint('start_time', 'close_time', name='kline_pk')
                             )
 
+        klines_stream_table = Table('f_klines_stream', metadata,
+                            Column('start_time', TIMESTAMP(timezone=True)),
+                            Column('open_price', Numeric),
+                            Column('high_price', Numeric),
+                            Column('low_price', Numeric),
+                            Column('close_price', Numeric),
+                            Column('volume', Numeric),
+                            Column('close_time', TIMESTAMP(timezone=True)),
+                            Column('number_of_trades', Integer),
+                            Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
+                            Column('close_time_numeric', Numeric),
+                            Column('start_time_numeric', Numeric),
+                            PrimaryKeyConstraint('start_time', 'close_time', name='kline_stream_pk')
+                            )
+
         trades_table = Table('f_aggr_trades', metadata,
                                 Column('agg_trade_id', Integer),
                              Column('price', Numeric),
@@ -40,7 +55,21 @@ def create_db(db_url, create_dimensions_first=False):
                              Column('best_price_match', String),
                              Column('tx_time_numeric', Numeric),
                              Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
-                             PrimaryKeyConstraint('agg_trade_id', 'tx_time_numeric', 'symbol_id', name='pk_aggrtrades')
+                             PrimaryKeyConstraint('agg_trade_id', 'tx_time_numeric', 'symbol_id',
+                                                  name='pk_aggrtrades')
+                             )
+
+        trades_stream_table = Table('f_aggr_trades_stream', metadata,
+                                Column('agg_trade_id', Integer),
+                             Column('price', Numeric),
+                             Column('quantity', Numeric),
+                             Column('transact_time', TIMESTAMP(timezone=True)),
+                             Column('is_buyer_maker', String),
+                             Column('best_price_match', String),
+                             Column('tx_time_numeric', Numeric),
+                             Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
+                             PrimaryKeyConstraint('agg_trade_id', 'tx_time_numeric', 'symbol_id',
+                                                  name='pk_aggrtrades_stream')
                              )
 
         dvkpis_table = Table('f_dvkpi', metadata,
@@ -51,14 +80,14 @@ def create_db(db_url, create_dimensions_first=False):
                              PrimaryKeyConstraint('dvkpi_timestamp', 'dvkpi_symbol_id', 'dvkpi_kpi', name='pk_kpis')
                              )
 
-        dvkpis_table = Table('f_dvkpi', metadata,
+        dvkpis_stream_table = Table('f_dvkpi_stream', metadata,
                                 Column('dvkpi_timestamp', TIMESTAMP(timezone=True)),
                              Column('dvkpi_symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
                              Column('dvkpi_kpi', String),
                              Column('dvkpi_kpi_value', Numeric),
-                             PrimaryKeyConstraint('dvkpi_timestamp', 'dvkpi_symbol_id', 'dvkpi_kpi', name='pk_kpis')
+                             PrimaryKeyConstraint('dvkpi_timestamp', 'dvkpi_symbol_id', 'dvkpi_kpi',
+                                                  name='pk_kpis_stream')
                              )
-
 
         models_table = Table('d_models', metadata,
                                 Column('model_timestamp', TIMESTAMP(timezone=True)),
@@ -71,12 +100,14 @@ def create_db(db_url, create_dimensions_first=False):
 
 
     inspector = inspect(engine)
-    #TODO extend check to other tables
-    #TODO put this check up in front
     if not create_dimensions_first:
         if not (inspector.has_table('f_klines')
+                and inspector.has_table('f_klines_stream')
                 and inspector.has_table('f_aggr_trades')
-                and inspector.has_table('f_dvkpi')):
+                and inspector.has_table('f_aggr_trades_stream')
+                and inspector.has_table('f_dvkpi')
+                and inspector.has_table('f_dvkpi_stream')
+                and inspector.has_table('d_models')):
             metadata.create_all(engine, checkfirst=True)
             print("FactTables are created.")
         else:
@@ -93,9 +124,10 @@ def insert_df_to_table(df, db_url, table_name):
     data = df.to_dict(orient='records')
     insertTableData(db_url, table_name, data)
 
+
 def insertTableData(db_url, table_name, data):
-    engine = create_engine(db_url, echo=True)
-    print(data)
+    engine = create_engine(db_url, echo=False)
+    #print(data)
     with engine.connect() as connection:
         trans = connection.begin()
         try:
@@ -107,9 +139,19 @@ def insertTableData(db_url, table_name, data):
             print(f"Rollback Error {e}")
             trans.rollback()
 
+def delete_data_from_table(db_url, table_name, symbol_id):
+    engine = create_engine(db_url, echo=False)
+    with engine.connect() as connection:
+        try:
+            stmt = text(f"DELETE FROM {table_name} WHERE symbol_id = {symbol_id}")
+            connection.execute(stmt)
+            print(f"Deleted data from '{table_name}' for symbol_id {symbol_id}.")
+        except Exception as e:
+            print(f"Error deleting data: {e}")
 
+# Manipulates
 def create_derived_kpis(db_url, symbol_id, approximate_avg_price, df_klines):
-    engine = create_engine(db_url, echo=True)
+    engine = create_engine(db_url, echo=False)
 
     # Calculate average prices first
     with engine.connect() as connection:
@@ -154,14 +196,48 @@ def create_derived_kpis(db_url, symbol_id, approximate_avg_price, df_klines):
                 #replace NaN with None
                 result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
 
-            insert_df_to_table(result_df, db_url, "f_dvkpi")
         except Exception as e:
             print(f"Error calculating average prices for derived KPIs: {e}")
 
-    if df_klines is None:
-        return None
-    else:
-        return result_df
+    return result_df
+
+def filter_derived_kpis(db_url, symbol_id, df):
+    engine = create_engine(db_url, echo=False)
+    with engine.connect() as connection:
+        try:
+            # determine latest data point in database table dvkpi
+            tab_dvkpi = Table("f_dvkpi", MetaData(), autoload_with=engine)
+            stmt = select(tab_dvkpi.c.dvkpi_timestamp).where((tab_dvkpi.c.dvkpi_kpi == 'AVG_PRICE'
+                                                              and tab_dvkpi.c.dvkpi_symbol_id == symbol_id))
+            result = connection.execute(stmt)
+            max_timestamp = pd.DataFrame(result).max()[0]
+            max_timestamp = pd.to_datetime(max_timestamp, format='%Y-%m-%d %H:%M:%S', utc=True).to_datetime64()
+
+            # Filter result_df for only new data
+            df['dvkpi_timestamp'] = pd.to_datetime(df['dvkpi_timestamp'], format='%Y-%m-%d %H:%M:%S')
+            df = df[df["dvkpi_timestamp"] > pd.to_datetime(max_timestamp)]
+            return df
+
+        except Exception as e:
+            print(f"Error filtering derived KPIs: {e}")
+
+def get_data_from_db_table(db_url, table_name, symbol_id_num):
+    engine = create_engine(db_url, echo=False)
+    with engine.connect() as connection:
+        try:
+            tab_to_load = Table(table_name, MetaData(), autoload_with=engine)
+            if table_name == "kpi_stream_table":
+                #TODO check why adding where condition yields Error retrieving data:
+                # Boolean value of this clause is not defined
+                stmt = select(tab_to_load)
+            else:
+                stmt = select(tab_to_load)
+            result = connection.execute(stmt)
+            rows = result.fetchall()
+            return rows
+        except Exception as e:
+            print(f"Error retrieving data: {e}")
+
 
 def getFirstTenRows(db_url, table_name):
     engine = create_engine(db_url, echo=True)

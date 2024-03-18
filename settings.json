@@ -1,34 +1,45 @@
 {
+  "_firstComment": "WEBSOCKET AND DATABASE CONFIGURATION",
   "websocket_type_comment": "Use async to use BinanceSocketManager, otherwise ThreadedWebsocketManager is used",
   "websocket_type": "async",
   "db_conn": "postgresql://db_user:pgpassword123@localhost/opa_db",
   "use_demo_account": "False",
   "api_key_demo": "N17QNtKJF26Uc663zoxenuVyLO3KyWyiAOCOu4Z15NT6xqbrSFFfYi3jUdu7qvIq",
   "api_key_secret_demo": "wQaYNV1hHLPsdRMl8qB5Ks1e4zeRFXPkceasUgISSLRaehs4SThr7BtNcw0BP533",
+
+  "_secondComment": "COIND AND CURRENCY CONFIGURATION",
   "coin_to_trade": "ETH",
   "fiat_curr": "EUR",
   "l_coins": [   "BTC",    "LTC",    "ETH",    "NEO",    "BNB"  ],
-  "fit_ml_model": "True",
+  "ts_interval": "1m",
+
+  "_thirdComment": "DATA LOADING CONFIGURATION",
+  "approximate_avg_price_comment": "Set this to true to set the average as avg of start and close, otherwise it's calculated from aggr_trades",
+  "approximate_avg_price": "True",
   "reload_from_csv": "False",
   "ts_start_comment": "Following parameter decides start point of time series used for Machine Learning models",
   "time_series_start_numeric": 1578038400000,
-  "ts_interval": "1m",
-  "aggregate_trades_table": "f_aggr_trades",
-  "klines_table": "f_klines",
-  "symbols_table": "d_symbols",
-  "kpi_table": "f_dvkpi",
-  "approximate_avg_price_comment": "Set this to true to set the average as avg of start and close, otherwise it's calculated from aggr_trades",
-  "approximate_avg_price": "True",
-  "load_historical": "False",
   "load_data": {
     "load_historical": "False",
     "recreate_tables": "False"
   },
+
+  "_fourthComment": "TABLE NAME CONFIGURATION",
+  "aggregate_trades_table": "f_aggr_trades",
+  "aggregate_trades_stream_table": "f_aggr_trades_stream",
+  "klines_table": "f_klines",
+  "klines_stream_table": "f_klines_stream",
+  "symbols_table": "d_symbols",
+  "kpi_table": "f_dvkpi",
+  "kpi_stream_table": "f_dvkpi_stream",
+
+  "_fifthComment": "MACHINE LEARNING CONFIGURATION",
   "model_fitting": {
-    "train_ml": "True",
+    "train_ml": "False",
     "models": ["LSTM"],
     "share_train_sample": 0.7
   },
+
   "tables": {
     "klines": {
       "filename_output": "klines.csv",

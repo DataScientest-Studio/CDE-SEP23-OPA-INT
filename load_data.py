@@ -22,7 +22,7 @@ def load_settings(settings_file_name):
         return json.load(settings_file)
 
 # Function loads historical data, either from CSV and/or through looping API
-def load_historical_data(api_key, api_sec):
+def load_historical_data(api_key, api_sec, symbol_id=1):
 
     # get main parameters
     symbol_txt = Settings.get_setting["coin_to_trade"] + Settings.get_setting["fiat_curr"]
@@ -31,8 +31,8 @@ def load_historical_data(api_key, api_sec):
     ts_start_date_numeric = Settings.get_setting("time_series_start_numeric")
 
     #TODO write function to get symbol_id for symbol
-    df_symbol = pd.DataFrame({'symbol_id': 1, 'symbol': symbol_txt}, index=[0])
-    db_driver.insert_df_to_table(df_symbol, Settings.get_setting("db_conn"), Settings.get_setting('symbols_table'))
+    #df_symbol = pd.DataFrame({'symbol_id': 1, 'symbol': symbol_txt}, index=[0])
+    #db_driver.insert_df_to_table(df_symbol, Settings.get_setting("db_conn"), Settings.get_setting('symbols_table'))
 
     dict_frames = {}
     l_data_type = ["klines", "aggr_trades"]
@@ -124,7 +124,20 @@ def load_historical_data(api_key, api_sec):
     df_symbol = pd.DataFrame({'symbol': 'ETHEUR'}, index=[0])
     db_driver.insert_df_to_table(df_symbol, Settings.get_setting("db_conn"), Settings.get_setting('symbols_table'))
 
-def load_recent_data(api_key, api_sec):
+def load_symbol_id(symbol):
+    db_url = Settings.get_setting("db_conn")
+    engine = create_engine(db_url)
+    with engine.connect() as connection:
+        try:
+            symbols = Table("d_symbols", MetaData(), autoload_with=engine)
+            stmt = select(symbols).where(symbols.c.symbol == symbol)
+            result = connection.execute(stmt)
+            symbol_id = pd.DataFrame(result).iloc[0,0]
+        except Exception as e:
+            print(f"Error retrieving data: {e}")
+    return symbol_id
+
+def load_recent_data(api_key, api_sec, symbol_id=1):
     # get main parameters
     symbol_txt = Settings.get_setting("coin_to_trade") + Settings.get_setting("fiat_curr")
 
@@ -134,7 +147,8 @@ def load_recent_data(api_key, api_sec):
     dict_frames = {}
     min_date_numeric = datetime.combine(date(2020,1,1), datetime.min.time()).timestamp() * 1000
     ts_start_date_numeric = min_date_numeric
-    # maximum timestamp available in Database is 00:00:00 of current day!
+
+    # maximum timestamp available in Database
     max_date_numeric = datetime.combine(date.today(), datetime.min.time()).timestamp() * 1000
 
 
@@ -149,22 +163,40 @@ def load_recent_data(api_key, api_sec):
                                                                 seconds_shift=30)
 
         if data_type == "aggr_trades":
-            df_res = bf.fix_trades_dataset(df_res, 1)
+            # First delete data from aggregates stream table, stream table is only temporary data
+            db_driver.delete_data_from_table(Settings.get_setting("db_conn"),
+                                             Settings.get_setting('aggregate_trades_stream_table'),
+                                             symbol_id)
+
+            df_res = bf.fix_trades_dataset(df_res, symbol_id)
+            # import data into stream data
+            db_driver.insert_df_to_table(df_res, Settings.get_setting("db_conn"),
+                                         Settings.get_setting('aggregate_trades_stream_table'))
         elif data_type == "klines":
-            df_res = bf.fix_klines_dataset(df_res, 1)
+            # First delete data from aggregates stream table, stream table is only temporary data
+            db_driver.delete_data_from_table(Settings.get_setting("db_conn"),
+                                             Settings.get_setting('klines_stream_table'),
+                                             symbol_id)
+            df_res = bf.fix_klines_dataset(df_res, symbol_id)
+            # import data into stream data
+            db_driver.insert_df_to_table(df_res, Settings.get_setting("db_conn"),
+                                         Settings.get_setting('klines_stream_table'))
         else:
             break
         dict_frames[data_type] = df_res
 
     return dict_frames
 
+def load_data_from_db_table(db_url, table_name, symbol_id=1):
+    df = db_driver.get_data_from_db_table(db_url,table_name, symbol_id)
+    return df
 
 # Function creates derived KPIs either database or from df_klines
-def create_derived_kpis(df_klines=None):
+# if df_klines is not None data is from the recent data stream (temporary data)
+def create_derived_kpis(df_klines=None, symbol_id=1):
     db_url = Settings.get_setting("db_conn")
     symbol = Settings.get_setting("coin_to_trade") + Settings.get_setting("fiat_curr")
-    # look up symbol_id
-    symbol_id =1
+
     approximate_avg_price = Settings.get_setting("approximate_avg_price")
     result_avg_klines = db_driver.create_derived_kpis(db_url, symbol_id, approximate_avg_price, df_klines)
 
@@ -184,13 +216,31 @@ def create_derived_kpis(df_klines=None):
     rsi_100 =ti.rsi(db_url, "ETHEUR", 100, result_avg_klines)
 
     #Force Index
+    #TODO: function yields error "you are trying to merge an object datetime64"
     fi_20 = ti.force_index(db_url, "ETHEUR", 20, result_avg_klines)
     fi_50 = ti.force_index(db_url, "ETHEUR", 50, result_avg_klines)
     fi_100 = ti.force_index(db_url, "ETHEUR", 100, result_avg_klines)
+
+    # Concatenate all KPIs so that existing data is not fetched (otherwise primary key error)
+    results_all_kpis = pd.concat([result_avg_klines, ewma_50, ewma_200, ewma_250,
+                                  sma_50, sma_200, sma_250, rsi_20, rsi_50, rsi_100,
+                                  fi_20, fi_50, fi_100], axis=0)
+    results_all_kpis = db_driver.filter_derived_kpis(db_url, symbol_id, results_all_kpis)
+
+    # if df_klines is None then function was called from historical data
     if df_klines is None:
+        # Insert returned data into database
+        db_driver.insert_df_to_table(results_all_kpis, db_url, Settings.get_setting('kpi_table'))
         return None
+
+    # if df_klines is not None then function was called from recent data stream
+    # insert to stream kpi table and return to memory since data may be needed for ML training
     else:
-        return pd.concat([ewma_50, ewma_200, ewma_250, sma_50, sma_200, sma_250, rsi_20, rsi_50, rsi_100, fi_20, fi_50, fi_100], axis=1)
+        db_driver.delete_data_from_table(Settings.get_setting("db_conn"),
+                                         Settings.get_setting('kpi_stream_table'),
+                                         symbol_id)
+        db_driver.insert_df_to_table(results_all_kpis, db_url, Settings.get_setting('kpi_stream_table'))
+        return results_all_kpis
 def get_min_and_max_dates(db_url, table_name):
     engine = create_engine(db_url)
     min_date_numeric = None

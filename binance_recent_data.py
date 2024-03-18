@@ -2,6 +2,8 @@ import pandas as pd
 from binance import Client
 import db_driver
 import time
+import datetime as dt
+
 
 def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data_type,
                                timespan_av_min, timespan_av_max, ts_start_date_numeric,
@@ -17,7 +19,7 @@ def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data
     #TODO include try and except in case that query yields error
     while ts_latest_value < ts_end_date_numeric-1000*seconds_shift:
         if not (ts_latest_value >= timespan_av_min and ts_latest_value <= timespan_av_max):
-            print("loading for", pd.to_datetime(ts_latest_value, unit='ms', utc=True))
+            print("loading for", pd.to_datetime(ts_latest_value, unit='ms', utc=True), "UTC")
             data_res = query_binance(api_key, api_secret, symbol, data_type, ts_latest_value)
             if data_type == "klines":
                 ts_latest_value = data_res.iloc[:,6].max()
@@ -36,7 +38,8 @@ def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data
 def query_binance(api_key, api_secret, symbol, data_type, t):
     bin_client = Client(api_key, api_secret)
     if data_type == "klines":
-        resulting_df = pd.DataFrame(bin_client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_1MINUTE, limit=1000, startTime=t))
+        resulting_df = pd.DataFrame(bin_client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_1MINUTE,
+                                                          limit=1000, startTime=t))
     elif data_type == "aggr_trades":
         resulting_df = pd.DataFrame(
             bin_client.get_aggregate_trades(symbol=symbol,limit=1000, startTime=t))
