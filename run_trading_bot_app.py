@@ -103,11 +103,25 @@ def run_app():
     symbol_id = load_data.load_symbol_id(symbol_txt)
     api_key, api_sec = get_credentials()
 
+    def click_button():
+        st.session_state.clicked = True
+
+    if 'stage' not in st.session_state:
+        st.session_state.stage = 0
+    def set_state(i):
+        st.session_state.stage = i
+
+    def set_epochs(num_epochs):
+        st.session_state.num_epochs = num_epochs
+
     # Initialize session state for buttons if not already done
     if 'reload_data' not in st.session_state:
         st.session_state['reload_data'] = False
     if 'keep_data' not in st.session_state:
         st.session_state['keep_data'] = False
+    if 'retrain_model' not in st.session_state:
+        st.session_state['retrain_model'] = False
+
 
     # Load historical data if not yet available in database
     # Historical data can be loaded from disk (fast) or through API calls (slow)
@@ -131,19 +145,36 @@ def run_app():
         st.write("Do you want to (re)-train the machine learning model?")
         col_yes_train, col_no_train = st.columns([1, 1])
         with col_yes_train:
-            st.session_state['retrain_model'] = st.button('Yes, re-train model')
+            st.session_state['retrain_model'] = st.button('Yes, re-train model', on_click=set_state, args=[1])
         with col_no_train:
-            st.session_state['keep_model'] = st.button('No, use existing model')
+            st.session_state['keep_model'] = st.button('No, use existing model', on_click=set_state, args=[3])
 
         # If train_ml is True, Machine Learning Model is (re)trained and a new model is stored on disk and
         # metadata in database
-        if st.session_state['retrain_model']:
+        model_train_step_completed = False
+        if st.session_state.stage == 1 or st.session_state == 2:
+            # Let the user decide the number of epochs
+            num_epochs = st.number_input('Enter the number of epochs for retraining the model',
+                                         min_value=20, max_value=100, value=20)
+            set_epochs(num_epochs)
+
+            # Add a button for the user to confirm the number of epochs
+            col_epochs_confirm, col_epochs_cancel = st.columns([1, 1])
+            with col_epochs_confirm:
+                st.button('Confirm number of epochs', on_click=set_state, args=[2])
+            with col_epochs_cancel:
+                st.button('Cancel retraining', on_click=set_state, args=[3])
+
+        if st.session_state.stage == 2:
+            #print(st.session_state.num_epochs)
             # Call the function to retrain the machine learning model
             st.write("Start Training of Machine Learning Model, this may take a while.")
-            ml_train.get_data(settings["db_conn"], settings["kpi_table"], symbol_id)
+            ml_train.get_data(settings["db_conn"], settings["kpi_table"], symbol_id, st.session_state.num_epochs)
             st.write("Machine Learning Model trained.")
+            set_state(3)
 
-        if st.session_state['retrain_model'] or st.session_state['keep_model']:
+
+        if (st.session_state.stage == 3):
             # get Recent data (klines and aggr_trades), recent = since noon today
             st.write("Loading recent data, this may take a while.")
             dict_df_res = load_data.load_recent_data(api_key, api_sec, symbol_id)
@@ -159,13 +190,11 @@ def run_app():
             df_input_prediction = load_data.create_derived_kpis(dict_df_res["klines"], symbol_id)
             y_pred = ml_train.get_predicted_data(model_file_name, df_input_prediction, scaler_file_name)
             inv_decision = ml_train.make_investment_decision(y_pred)
-            st.write("Investment Decision: ", inv_decision)
+
+            st.write("**Investment Decision: ", inv_decision,'.**')
 
             get_data_from_socket(api_key, api_sec, flag_use_demo_acc)
             data = load_data.load_data_from_db_table(db_url, klines_stream_table)
-
-            # Display the data
-            st.dataframe(data)
 
             # Create a Candlestick Chart
             fig = go.Figure(data=[go.Candlestick(x=data["start_time"],
@@ -173,8 +202,21 @@ def run_app():
                                                              high=data['high_price'],
                                                              low=data['low_price'],
                                                              close=data['close_price'])])
-            #pl = st.empty()
+
+
+            # Resize
+            min_candle_start_time = data.iloc[-200,0]
+            max_candle_start_time = data.iloc[-1,0]
+            fig.update_layout(
+                autosize=True,
+                width=600,
+                height=800,
+                xaxis_range=[min_candle_start_time, max_candle_start_time]
+            )
+
             st.plotly_chart(fig)
+
+
 
 
 

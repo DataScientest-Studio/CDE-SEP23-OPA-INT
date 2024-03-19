@@ -142,9 +142,15 @@ def insertTableData(db_url, table_name, data):
 def delete_data_from_table(db_url, table_name, symbol_id):
     engine = create_engine(db_url, echo=False)
     with engine.connect() as connection:
+        trans = connection.begin()
         try:
-            stmt = text(f"DELETE FROM {table_name} WHERE symbol_id = {symbol_id}")
+            table = Table(table_name, MetaData(), autoload_with=engine)
+            if table_name in ("f_dvkpi_stream", "f_dvkpi"):
+                stmt = table.delete().where(table.c.dvkpi_symbol_id == int(symbol_id))
+            else:
+                stmt = table.delete().where(table.c.symbol_id == int(symbol_id))
             connection.execute(stmt)
+            trans.commit()
             print(f"Deleted data from '{table_name}' for symbol_id {symbol_id}.")
         except Exception as e:
             print(f"Error deleting data: {e}")
@@ -211,11 +217,11 @@ def filter_derived_kpis(db_url, symbol_id, df):
                                                               and tab_dvkpi.c.dvkpi_symbol_id == symbol_id))
             result = connection.execute(stmt)
             max_timestamp = pd.DataFrame(result).max()[0]
-            max_timestamp = pd.to_datetime(max_timestamp, format='%Y-%m-%d %H:%M:%S', utc=True).to_datetime64()
+            max_timestamp = pd.to_datetime(max_timestamp, format='%Y-%m-%d %H:%M:%S', utc=True)#.to_datetime64()
 
             # Filter result_df for only new data
             df['dvkpi_timestamp'] = pd.to_datetime(df['dvkpi_timestamp'], format='%Y-%m-%d %H:%M:%S')
-            df = df[df["dvkpi_timestamp"] > pd.to_datetime(max_timestamp)]
+            df = df[df["dvkpi_timestamp"] > max_timestamp]
             return df
 
         except Exception as e:

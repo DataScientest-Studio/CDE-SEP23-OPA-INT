@@ -46,16 +46,34 @@ def timeseries_preprocessing(scaled_train, scaled_test, lags):
     return X_train, Y_train, X_test, Y_test
 
 
+def build_lstm_model(X_train, Y_train, X_test, Y_test, scaler, num_epochs, symbol_id=1):
+    model = Sequential()
+    model.add(LSTM(256, input_shape=(X_train.shape[1], 1)))
+    model.add(Dense(1))
+    model.compile(optimizer='adam', loss='mse')
+
+    fitted_model = model.fit(x=X_train, y=Y_train, epochs=num_epochs, validation_data=(X_test, Y_test), shuffle=False)
+
+    model_datetimestamp ="lstm_" + str(datetime.now().strftime("%Y%m%d_%H_%M"))
+    model_name = "lstm_model" + model_datetimestamp + ".keras"
+    scaler_name = "lstm_scaler" + model_datetimestamp + ".bin"
+
+    #log model in database
+    insert_model_to_db(model_name, 'Y', symbol_id)
+
+    # store model and scaler to disk
+    model.save('./models/' + model_name)
+    dump(scaler, './models/' + scaler_name, compress=True)
 
 
 
-def get_data(db_url, table_name, symbol_id=1):
+def get_data(db_url, table_name, symbol_id=1, num_epochs=100):
     #TODO: migrate ml solution to spark and Docker
     #spark = build_spark()
     #table_name = "d_symbols"
     #df = spark.read.jdbc(db_url, table_name)
+    #TODO: check why loading from database is not working/ too slow
     # engine = create_engine(db_url, echo=True)
-    #
     # with engine.connect() as connection:
     #     try:
     #         table = Table(table_name, MetaData(), autoload_with=engine)
@@ -80,26 +98,10 @@ def get_data(db_url, table_name, symbol_id=1):
     scaled_test = scaler.transform(test_data)
     X_train, Y_train, X_test, Y_test = timeseries_preprocessing(scaled_train, scaled_test, 10)
 
-    model = Sequential()
-    model.add(LSTM(256, input_shape=(X_train.shape[1], 1)))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mse')
-
-    fitted_model = model.fit(x=X_train, y=Y_train, epochs=5, validation_data=(X_test, Y_test), shuffle=False)
-
-    model_datetimestamp ="lstm_" + str(datetime.now().strftime("%Y%m%d_%H_%M"))
-    model_name = "lstm_model" + model_datetimestamp + ".keras"
-    scaler_name = "lstm_scaler" + model_datetimestamp + ".bin"
-
-    #log model in database
-    insert_model_to_db(model_name, 'Y', symbol_id)
-
-    # store model and scaler to disk
-    model.save('./models/' + model_name)
-    dump(scaler, './models/' + scaler_name, compress=True)
+    # Build Model
+    build_lstm_model(X_train, Y_train, X_test, Y_test, scaler, num_epochs, symbol_id)
 
     #Y_predicted=scaler.inverse_transform(model.predict(X_test))
-
     #Y_true = scaler.inverse_transform(Y_test.reshape(Y_test.shape[0], 1))
     #from sklearn import metrics
     #print('Model accuracy (%)')

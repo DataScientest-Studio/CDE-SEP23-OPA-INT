@@ -19,7 +19,7 @@ def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data
     #TODO include try and except in case that query yields error
     while ts_latest_value < ts_end_date_numeric-1000*seconds_shift:
         if not (ts_latest_value >= timespan_av_min and ts_latest_value <= timespan_av_max):
-            print("loading for", pd.to_datetime(ts_latest_value, unit='ms', utc=True), "UTC")
+            print("loading for", pd.to_datetime(ts_latest_value, unit='ms', utc=True), "UTC onwards")
             data_res = query_binance(api_key, api_secret, symbol, data_type, ts_latest_value)
             if data_type == "klines":
                 ts_latest_value = data_res.iloc[:,6].max()

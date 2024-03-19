@@ -168,7 +168,7 @@ def load_recent_data(api_key, api_sec, symbol_id=1):
                                              Settings.get_setting('aggregate_trades_stream_table'),
                                              symbol_id)
 
-            df_res = bf.fix_trades_dataset(df_res, symbol_id)
+            df_res = bf.fix_trades_dataset(df_res, symbol_id).drop_duplicates()
             # import data into stream data
             db_driver.insert_df_to_table(df_res, Settings.get_setting("db_conn"),
                                          Settings.get_setting('aggregate_trades_stream_table'))
@@ -188,7 +188,7 @@ def load_recent_data(api_key, api_sec, symbol_id=1):
     return dict_frames
 
 def load_data_from_db_table(db_url, table_name, symbol_id=1):
-    df = db_driver.get_data_from_db_table(db_url,table_name, symbol_id)
+    df = pd.DataFrame(db_driver.get_data_from_db_table(db_url,table_name, symbol_id))
     return df
 
 # Function creates derived KPIs either database or from df_klines

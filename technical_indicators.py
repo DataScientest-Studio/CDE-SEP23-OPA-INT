@@ -117,14 +117,17 @@ def force_index(db_url, symbol_id, n_periods=50, df_klines=None):
                 result = df_klines.copy(deep=True)
 
             result_df = pd.DataFrame(result)
-
+            min_timestamp = result_df["dvkpi_timestamp"].min()
+            result_df["dvkpi_timestamp"] = pd.to_datetime(result_df["dvkpi_timestamp"], utc=True)
+            # filter out rows where price = None
             klines = Table("f_klines", MetaData(), autoload_with=engine)
-            query = select(klines).where((klines.c.symbol_id == 1))
+            query = select(klines).where((klines.c.symbol_id == 1 and klines.c.close_time >= min_timestamp))
             # Execute the query and fetch the results
             result = connection.execute(query)
             klines_df = pd.DataFrame(result)
 
             result_df = result_df.merge(klines_df, how='left', left_on = 'dvkpi_timestamp', right_on='close_time')
+
 
 
             fi = pd.Series(result_df["dvkpi_kpi_value"].diff(n_periods) * result_df["volume"],
