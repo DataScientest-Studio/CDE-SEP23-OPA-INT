@@ -86,7 +86,7 @@ l_data_type = ["klines", "aggr_trades"]
 # get Recent data (klines and aggr_trades), recent = since noon today
 dict_df_res = load_data.load_recent_data(api_key, api_sec, symbol_id)
 
-# TODO: apply ML model to data from stream
+#TODO write backup function -> in case that model is not stored in database but available on disk, we should pick the lastest one from disk
 model_file_name = ml_train.get_valid_model(db_url, symbol_id)[0]
 scaler_file_name = model_file_name.replace("model", "scaler").replace("keras", "bin")
 df_input_prediction = load_data.create_derived_kpis(dict_df_res["klines"], symbol_id)
@@ -113,4 +113,5 @@ if settings["websocket_type"] != "async":
     bsm.stop()
 else:
     # from streamz import Stream
+    # TODO: apply ML model to data from stream
     binance_streams.run_main(api_key, api_sec, coin, fiat_curr, flag_use_demo_acc)
