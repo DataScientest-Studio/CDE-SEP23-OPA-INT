@@ -54,9 +54,9 @@ def build_lstm_model(X_train, Y_train, X_test, Y_test, scaler, num_epochs, symbo
 
     fitted_model = model.fit(x=X_train, y=Y_train, epochs=num_epochs, validation_data=(X_test, Y_test), shuffle=False)
 
-    model_datetimestamp ="lstm_" + str(datetime.now().strftime("%Y%m%d_%H_%M"))
-    model_name = "lstm_model" + model_datetimestamp + ".keras"
-    scaler_name = "lstm_scaler" + model_datetimestamp + ".bin"
+    model_datetimestamp =str(datetime.now().strftime("%Y%m%d_%H_%M"))
+    model_name = "lstm_model_" + model_datetimestamp + ".keras"
+    scaler_name = "lstm_scaler_" + model_datetimestamp + ".bin"
 
     #log model in database
     insert_model_to_db(model_name, 'Y', symbol_id)
@@ -67,7 +67,7 @@ def build_lstm_model(X_train, Y_train, X_test, Y_test, scaler, num_epochs, symbo
 
 
 
-def get_data(db_url, table_name, symbol_id=1, num_epochs=100):
+def get_data(db_url, table_name, symbol_id=1, num_epochs=50):
     #TODO: migrate ml solution to spark and Docker
     #spark = build_spark()
     #table_name = "d_symbols"
@@ -160,16 +160,19 @@ def insert_model_to_db(model_file_name, model_active, symbol_id=1):
     engine = create_engine(db_url)
 
     with engine.connect() as connection:
+        trans = connection.begin()
         try:
             tab_models = Table("d_models", MetaData(), autoload_with=engine)
             stmt = select(tab_models.c.model_id)
             result = connection.execute(stmt)
-            model_id = max(pd.Series(result)) + 1 if result is not None else 1
+            model_id = int(max(pd.Series(result).values[0])) + 1 if result is not None else 1
             ins = insert(tab_models).values(model_timestamp= datetime.now(),
                                        model_id = model_id,
                                        model_active=model_active,
                                        model_filename=model_file_name,
                                        symbol_id=symbol_id)
             connection.execute(ins)
+            trans.commit()
+            #TODO write update statement to set all other models to inactive
         except Exception as e:
             print(f"Error inserting model to database: {e}")
