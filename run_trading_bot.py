@@ -8,12 +8,9 @@ from binance.client import Client
 import binance_recent_data
 import binance_streams
 import load_data
+import ml_train
 
-# used: https://algotrading101.com/learn/binance-python-api-guide/
-# https://readthedocs.org/projects/python-binance/downloads/pdf/latest/
-# https://binance-docs.github.io/apidocs/spot/en/#exchange-information
 
-settings_file_name = "settings.json"
 
 def btc_trade_history(msg):
     ''' define how to process incoming WebSocket messages '''
@@ -33,9 +30,15 @@ def load_settings(settings_file_name):
 
 
 # Read Settings
+settings_file_name = "settings.json"
 settings = load_settings(settings_file_name)
 coin = settings["coin_to_trade"]
 fiat_curr = settings["fiat_curr"]
+symbol_txt = coin + fiat_curr
+load_historical_data = settings["load_data"]["load_historical"]
+recreate_tables = settings["load_data"]["recreate_tables"]
+train_ml = settings["model_fitting"]["train_ml"]
+db_url = settings["db_conn"]
 
 # get Credentials
 if settings["use_demo_account"]:
@@ -55,34 +58,47 @@ else:
     api_sec = creden.split('\n')[1]
     f.close()
 
-#Startup DB config
-load_data.create_db()
+# Startup DB config
+
+if recreate_tables == "True":
+    load_data.create_db()
+
+#get symbol_id
+symbol_id = load_data.load_symbol_id(symbol_txt)
 
 
-# TODO: "build function that inserts historical data to database and checks whether already available"
-# TODO: "get data from database"
+# Load historical data if not yet available in database
+# Historical data can be loaded from disk (fast) or through API calls (slow)
+if load_historical_data == "True":
+    load_data.load_historical_data(api_key, api_sec, symbol_id)
+    load_data.create_derived_kpis()
+
+
+# If train_ml is True, Machine Learning Model is (re)trained and a new model is stored on disk and metadata in database
+if train_ml == "True":
+    ml_train.get_data(settings["db_conn"], settings["kpi_table"], symbol_id)
+
+
 
 # Get Recent Data
 l_data_type = ["klines", "aggr_trades"]
-symbol_txt = coin + fiat_curr
-dict_frames = {}
 
-# Data is Stored in txt file on disk and returned to df (in-memory)
-for data_type in l_data_type:
-    filename_output = settings[data_type]["filename_output"]
-    range_start_col = settings[data_type]["range_start_cols"]
-    range_end_col = settings[data_type]["range_end_cols"]
-    df_res = binance_recent_data.handle_binance_recent_data(filename_output=filename_output, api_key=api_key,
-                                                 api_secret=api_sec, symbol=symbol_txt,
-                                                 range_start_cols=range_start_col, range_end_cols=range_end_col,
-                                                 db_conn=db_url, data_type=data_type)
-    dict_frames[data_type] = df_res
+# get Recent data (klines and aggr_trades), recent = since noon today
+dict_df_res = load_data.load_recent_data(api_key, api_sec, symbol_id)
 
+#TODO write backup function -> in case that model is not stored in database but available on disk, we should pick the lastest one from disk
+model_file_name = ml_train.get_valid_model(db_url, symbol_id)[0]
+scaler_file_name = model_file_name.replace("model", "scaler").replace("keras", "bin")
+df_input_prediction = load_data.create_derived_kpis(dict_df_res["klines"], symbol_id)
+y_pred = ml_train.get_predicted_data(model_file_name, df_input_prediction, scaler_file_name)
+inv_decision = ml_train.make_investment_decision(y_pred)
+
+#TODO: concatenate previous data frame with stream and make investment decision
 # Retrieve Data Stream
 if settings["websocket_type"] != "async":
     bin_client = Client(api_key, api_sec, testnet=flag_use_demo_acc)
     # print(bin_client.get_account())
-    print("Welcome")
+    #print("Welcome")
     print("Your Account balance: ", bin_client.get_asset_balance(asset='BTC'))
     # Latest btc price
     btc_price = bin_client.get_symbol_ticker(symbol="BTCUSDT")
@@ -97,10 +113,5 @@ if settings["websocket_type"] != "async":
     bsm.stop()
 else:
     # from streamz import Stream
-    # stream = Stream()
-    # stream.map(query).accumulate(aggregate, start=0)
+    # TODO: apply ML model to data from stream
     binance_streams.run_main(api_key, api_sec, coin, fiat_curr, flag_use_demo_acc)
-    # TODO: concatenate data frames
-
-# line only inserted as debug point, has no value
-settings = load_settings(settings_file_name)
