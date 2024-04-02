@@ -29,19 +29,17 @@ train_ml = settings["model_fitting"]["train_ml"]
 db_url = settings["db_conn"]
 klines_stream_table = settings["klines_stream_table"]
 
+
 # get Credentials
 def get_credentials():
     if settings["use_demo_account"]:
-        flag_use_demo_acc = True
         api_key = settings["api_key_demo"]
         api_sec = settings["api_key_secret_demo"]
     # Check if API credentials are stored in Environmental Variables
     elif os.environ.get("binance_api") is not None and os.environ.get("binance_secret") is not None:
-        flag_use_demo_acc = False
         api_key = os.environ.get("binance_api")
         api_sec = os.environ.get("binance_secret")
     else:
-        flag_use_demo_acc = False
         f = open("binance_api_key.txt", "r")
         creden = f.read()
         api_key = creden.split('\n')[0]

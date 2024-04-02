@@ -20,7 +20,7 @@ def ask_exit(signame, loop):
     loop.stop()
 
 
-async def get_kline_data(bsm, api_key, api_secret, symbol, start_time):
+async def get_kline_data(bsm, symbol, start_time):
 
     symbol_multi_socket = symbol.lower() + '@kline_1m'
     async with bsm.multiplex_socket([symbol_multi_socket]) as stream:
@@ -38,7 +38,7 @@ async def get_kline_data(bsm, api_key, api_secret, symbol, start_time):
             #print(res_df)
 
 
-async def get_aggr_trade_data(bsm, api_key, api_secret, symbol, start_time):
+async def get_aggr_trade_data(bsm, symbol, start_time):
 
     symbol_multi_socket = symbol.lower() + '@aggTrade'
 
@@ -54,7 +54,6 @@ async def get_aggr_trade_data(bsm, api_key, api_secret, symbol, start_time):
             if time.time() - start_time > 15:
                 print("Closing aggr_trades stream after 15 seconds")
                 break
-            #print(res_df)
 
 
 async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
@@ -63,7 +62,7 @@ async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
 
     symbol_txt = coin + fiat_curr
     start_time = time.time()
-    await asyncio.gather(get_kline_data(bsm, api_key, api_secret, symbol_txt, start_time),
+    await asyncio.gather(get_kline_data(bsm, symbol_txt, start_time),
                          get_aggr_trade_data(bsm, api_key, api_secret, symbol_txt, start_time))
     await asyncio.sleep(10)
     await client.close_connection()

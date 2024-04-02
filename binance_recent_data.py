@@ -1,8 +1,6 @@
 import pandas as pd
 from binance import Client
-import db_driver
 import time
-import datetime as dt
 
 
 def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data_type,
