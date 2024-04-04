@@ -9,3 +9,6 @@ aggr_trades.txt
 *.iml
 *.pyc
 .idea/
+*.csv
+*.zip
+*.DS_Store

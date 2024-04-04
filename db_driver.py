@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, MetaData, TIMESTAMP, inspect, \
+from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, MetaData, TIMESTAMP, \
     insert, select, PrimaryKeyConstraint, ForeignKey
 import pandas as pd
 import numpy as np

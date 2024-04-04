@@ -6,7 +6,6 @@ import pandas as pd
 import binance_response_formatter as bf
 import technical_indicators as ti
 import binance_recent_data
-import json
 
 
 # Startup DB config
