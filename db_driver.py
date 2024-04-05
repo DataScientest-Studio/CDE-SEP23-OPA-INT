@@ -149,6 +149,7 @@ def create_derived_kpis(db_url, symbol_id, approximate_avg_price, df_klines):
                     result = connection.execute(stmt)
                 else:
                     result = df_klines
+
                 result_df = pd.DataFrame(result)
                 result_df = result_df.reset_index()
                 result_df["dvkpi_kpi_value"] = result_df[["open_price", "close_price"]].mean(axis=1)

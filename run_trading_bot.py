@@ -5,11 +5,9 @@ import time
 from binance import ThreadedWebsocketManager
 from binance.client import Client
 
-import binance_recent_data
 import binance_streams
 import load_data
 import ml_train
-
 
 
 def btc_trade_history(msg):

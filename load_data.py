@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, Table, MetaData, select
 from datetime import datetime, date
 import pandas as pd
 import binance_response_formatter as bf
-import technical_indicators as ti
+from cross_cutting import technical_indicators as ti
 import binance_recent_data
 
 
