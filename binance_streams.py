@@ -1,59 +1,71 @@
 import asyncio
-import os, time
+import os
+
 import pandas as pd
-import binance_response_formatter as bf
-import db_driver
+from binance import AsyncClient, BinanceSocketManager
+
+from binance_recent_data import BinanceRecentData
+from cross_cutting.utils import unix_to_datetime
+
+from cross_cutting.symbol_repository import SymbolRepository
+from kpi_service import get_last_kpi_and_pivot, fill_pivoted_kpis
 from settings import Settings
-from binance import AsyncClient, BinanceSocketManager, Client
 
-
-os.environ['TZ'] = 'UTC' # set timezone to UTC
+os.environ['TZ'] = 'UTC'  # set timezone to UTC
 
 # Define which keys to keep from streams
-keys_candles = ["t","o", "h", "l", "c", "v", "T", "q", "n", "B", "Q", "s"]
-key_agg_trades = ["a", "p", "q", "f", "l", "T", "m", "M"]
-colnames_agg_trades = ["AggTradeID", "Price", "Quantity", "FirstTradeID", "LastTradeID", "Timestamp"]
+keys_candles = ["t", "o", "h", "l", "c", "v", "T", "q", "n", "B", "Q", "s"]
 db_url = Settings.get_setting("db_conn")
 
-def ask_exit(signame, loop):
-    print("got signal %s: exit" % signame)
-    loop.stop()
+
+def handle_kline_stream_data(stream_dic: dict) -> pd.DataFrame:
+    df = pd.DataFrame({
+        'open_price': [float(stream_dic['o'])],
+        'high_price': [float(stream_dic['h'])],
+        'low_price': [float(stream_dic['l'])],
+        'close_price': [float(stream_dic['c'])],
+        'volume': [float(stream_dic['v'])],
+        'number_of_trades': [stream_dic['n']],
+        'close_time_numeric': [stream_dic['T']],
+        'start_time_numeric': [stream_dic['t']],
+        'symbol_id': 1  # TODO get symbol_id from symbol
+    })
+
+    df['start_time'] = df['start_time_numeric'].apply(unix_to_datetime)
+    df['close_time'] = df['close_time_numeric'].apply(unix_to_datetime)
+
+    return df
 
 
-async def get_kline_data(bsm, symbol, start_time):
+async def run_kline_stream(bsm, symbol):
+    brd = BinanceRecentData()
+    brd.handle_and_store_data(symbol)
 
+    sr = SymbolRepository()
+    last_kline = sr.get_last_kline_timestamp(symbol)
+
+    kpis = get_last_kpi_and_pivot(last_kline, symbol)
     symbol_multi_socket = symbol.lower() + '@kline_1m'
+
     async with bsm.multiplex_socket([symbol_multi_socket]) as stream:
         while True:
-            res = await stream.recv()
+            try:
+                res = await stream.recv()
+            except Exception as e:
+                print(f"Exception while receiving stream: {e}")
+                continue
+
             res_dict = res["data"]["k"]
+
+            if res_dict["x"] == False:
+                print(f"Kline stream is not closed{res_dict['t']}")
+                continue
+
+            print(f"Kline stream is closed{res_dict['t']}")
+
             res_dict_selected_keys = {key: res_dict[key] for key in keys_candles}
-            res_df = pd.DataFrame(res_dict_selected_keys, index=pd.Series(res_dict["s"]))
-            res_df = bf.fix_klines_dataset(res_df, 1)
-            db_driver.insert_df_to_table(res_df, db_url, Settings.get_setting("klines_stream_table"))
-
-            if time.time() - start_time > 10:
-                print("Closing klines stream after 15 seconds")
-                break
-            #print(res_df)
-
-
-async def get_aggr_trade_data(bsm, symbol, start_time):
-
-    symbol_multi_socket = symbol.lower() + '@aggTrade'
-
-    async with bsm.multiplex_socket([symbol_multi_socket]) as stream:
-        while True:
-            res = await stream.recv()
-            res_dict = res["data"]
-            res_dict_selected_keys = {key: res_dict[key] for key in key_agg_trades}
-            res_df = pd.DataFrame(res_dict_selected_keys, index=pd.Series(res_dict["s"]))
-            res_df = bf.fix_trades_dataset(res_df, 1)
-            db_driver.insert_df_to_table(res_df, db_url, Settings.get_setting("aggregate_trades_stream_table"))
-
-            if time.time() - start_time > 15:
-                print("Closing aggr_trades stream after 15 seconds")
-                break
+            current_kline_df = handle_kline_stream_data(res_dict_selected_keys)
+            kpis = brd.handle_and_store_data(symbol, res_dict['t'], current_kline_df, kpis)
 
 
 async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
@@ -61,9 +73,7 @@ async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
     bsm = BinanceSocketManager(client, user_timeout=20)
 
     symbol_txt = coin + fiat_curr
-    start_time = time.time()
-    await asyncio.gather(get_kline_data(bsm, symbol_txt, start_time),
-                         get_aggr_trade_data(bsm, api_key, api_secret, symbol_txt, start_time))
+    await asyncio.gather(run_kline_stream(bsm, symbol_txt))
     await asyncio.sleep(10)
     await client.close_connection()
 
@@ -71,5 +81,7 @@ async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
 def run_main(api_key, api_secret, coin="ETH", fiat_curr="EUR", flag_use_demo_acc=True):
     return asyncio.run(main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc))
 
-# if __name__ == "__main__":
-# asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main(api_key=Settings.get_setting("api_key_demo"), api_secret=Settings.get_setting("api_secret_demo"),
+                     coin="ETH", fiat_curr="EUR", flag_use_demo_acc=True))

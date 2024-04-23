@@ -1,26 +1,11 @@
-import pandas as pd
+import pandas
+from cross_cutting.utils import unix_to_datetime
 
 def fix_klines_dataset(df, symbol_id):
-    df = df.drop(df.columns[-1], axis=1)
-    df.columns = [
-        'start_time', 'open_price', 'high_price', 'low_price',
-        'close_price', 'volume', 'close_time', 'quote_asset_volume',
-        'number_of_trades', 'taker_buy_base_asset_volume',
-        'taker_buy_quote_asset_volume'
-    ]
-
-    df.drop(['taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'quote_asset_volume'], axis=1, inplace=True)
     # Add Columns
     df['symbol_id'] = symbol_id
-    df["start_time_numeric"] = df["start_time"]
-    df["close_time_numeric"] = df["close_time"]
-
-    # Transform numeric to Dates
-    df['start_time'] = pd.to_datetime(df['start_time'], unit='ms', utc=True)
-    df['close_time'] = pd.to_datetime(df['close_time'], unit='ms', utc=True)
-
-    df['start_time'] = df['start_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    df['close_time'] = df['close_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    df["start_time"] = df["start_time_numeric"].apply(unix_to_datetime)
+    df["close_time"] = df["close_time_numeric"].apply(unix_to_datetime)
 
     df = df.astype({
         'open_price': 'float',
@@ -31,29 +16,22 @@ def fix_klines_dataset(df, symbol_id):
         'number_of_trades': 'int'
     })
 
-    df['symbol_id'] = symbol
+    return df
 
+def fix_kpis_dataset(df: pandas.DataFrame, symbol_id: int) -> pandas.DataFrame:
+    df['dvkpi_symbol_id'] = symbol_id
+    df['dvkpi_timestamp'] = df['date']
+    df.drop(columns=['date'], inplace=True)
 
-def fix_trades_dataset(df, symbol_id):
-    #df = df.drop(df.columns[-1], axis=1)
-    df.columns = [
-        'agg_trade_id', 'price', 'quantity', 'first_trade_id',
-        'last_trade_id', 'transact_time', 'is_buyer_maker', "best_price_match"]
-    
-    df.drop(['first_trade_id', 'last_trade_id'], axis=1, inplace=True)
-    df['tx_time_numeric'] = df['transact_time']
-    df['transact_time'] = pd.to_datetime(df['transact_time'], unit='ms', utc=True)
-    df['transact_time'] = df['transact_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    print(df)
+    print(df.columns)
+    df.columns = ['dvkpi_timestamp_numeric', 'dvkpi_kpi', 'dvkpi_kpi_value', 'dvkpi_symbol_id', 'dvkpi_timestamp']
 
     df = df.astype({
-        'agg_trade_id': 'int',
-        'price': 'float',
-        'quantity': 'float',
-        "is_buyer_maker": 'int',
-        "best_price_match": 'int'
+        'dvkpi_kpi_value': 'float',
+        'dvkpi_kpi': 'str'
     })
+    return df
 
 
-#df_symbol = pd.DataFrame({'symbol': 'ETHEUR'}, index=[0])
-#print(df_symbol.head(5))
 

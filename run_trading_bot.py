@@ -77,11 +77,10 @@ if train_ml == "True":
     ml_train.get_data(settings["db_conn"], settings["kpi_table"], symbol_id)
 
 
-
 # Get Recent Data
-l_data_type = ["klines", "aggr_trades"]
+l_data_type = ["klines"]
 
-# get Recent data (klines and aggr_trades), recent = since noon today
+# get Recent data (klines), recent = since noon today
 dict_df_res = load_data.load_recent_data(api_key, api_sec, symbol_id)
 
 #TODO write backup function -> in case that model is not stored in database but available on disk, we should pick the lastest one from disk

@@ -2,8 +2,12 @@ from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, M
     insert, select, PrimaryKeyConstraint, ForeignKey
 import pandas as pd
 import numpy as np
+import logging
+
+from settings import Settings
 
 def create_db(db_url):
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
     engine = create_engine(db_url)
     metadata = MetaData()
 
@@ -41,34 +45,9 @@ def create_db(db_url):
                                 PrimaryKeyConstraint('start_time', 'close_time', name='kline_stream_pk')
                                 )
 
-    trades_table = Table('f_aggr_trades', metadata,
-                         Column('agg_trade_id', Integer),
-                         Column('price', Numeric),
-                         Column('quantity', Numeric),
-                         Column('transact_time', TIMESTAMP(timezone=True)),
-                         Column('is_buyer_maker', String),
-                         Column('best_price_match', String),
-                         Column('tx_time_numeric', Numeric),
-                         Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
-                         PrimaryKeyConstraint('agg_trade_id', 'tx_time_numeric', 'symbol_id',
-                                              name='pk_aggrtrades')
-                         )
-
-    trades_stream_table = Table('f_aggr_trades_stream', metadata,
-                                Column('agg_trade_id', Integer),
-                                Column('price', Numeric),
-                                Column('quantity', Numeric),
-                                Column('transact_time', TIMESTAMP(timezone=True)),
-                                Column('is_buyer_maker', String),
-                                Column('best_price_match', String),
-                                Column('tx_time_numeric', Numeric),
-                                Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
-                                PrimaryKeyConstraint('agg_trade_id', 'tx_time_numeric', 'symbol_id',
-                                                     name='pk_aggrtrades_stream')
-                                )
-
     dvkpis_table = Table('f_dvkpi', metadata,
                          Column('dvkpi_timestamp', TIMESTAMP(timezone=True)),
+                         Column('dvkpi_timestamp_numeric', Numeric),
                          Column('dvkpi_symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
                          Column('dvkpi_kpi', String),
                          Column('dvkpi_kpi_value', Numeric),
@@ -77,6 +56,7 @@ def create_db(db_url):
 
     dvkpis_stream_table = Table('f_dvkpi_stream', metadata,
                                 Column('dvkpi_timestamp', TIMESTAMP(timezone=True)),
+                                Column('dvkpi_timestamp_numeric', Numeric),
                                 Column('dvkpi_symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
                                 Column('dvkpi_kpi', String),
                                 Column('dvkpi_kpi_value', Numeric),
@@ -102,6 +82,13 @@ def insert_df_to_table(df, db_url, table_name):
     data = df.to_dict(orient='records')
     insertTableData(db_url, table_name, data)
 
+def insert_df_to_multiple_tables(df_list : list, table_name_list: list):
+    data = []
+    for df in df_list:
+        data.append(df.to_dict(orient='records'))
+
+    insertMultipleTable(table_name_list, data)
+
 
 def insertTableData(db_url, table_name, data):
     engine = create_engine(db_url, echo=False)
@@ -112,6 +99,22 @@ def insertTableData(db_url, table_name, data):
             stmt = insert(Table(table_name, MetaData(), autoload_with=engine)).values(data)
             connection.execute(stmt)
             print(f"Inserted {len(data)} records into '{table_name}'.")
+            trans.commit()
+        except Exception as e:
+            print(f"Rollback Error {e}")
+            trans.rollback()
+
+def insertMultipleTable(table_name: list, data: list):
+    db_url = Settings.get_setting("db_conn")
+    engine = create_engine(db_url, echo=False)
+
+    with engine.connect() as connection:
+        trans = connection.begin()
+        try:
+            for i in range(len(table_name)):
+                stmt = insert(Table(table_name[i], MetaData(), autoload_with=engine)).values(data[i])
+                connection.execute(stmt)
+                print(f"Inserted {len(data[i])} records into '{table_name[i]}'.")
             trans.commit()
         except Exception as e:
             print(f"Rollback Error {e}")
