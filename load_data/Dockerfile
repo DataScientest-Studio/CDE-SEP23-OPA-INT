@@ -1,4 +1,6 @@
-FROM ubuntu:latest
-LABEL authors="rubemmoreira"
+FROM bitnami/spark:3.5.1
 
-ENTRYPOINT ["top", "-b"]
+# Install Python dependencies
+COPY . /load_data
+RUN pip install -r /load_data/requirements.txt
+

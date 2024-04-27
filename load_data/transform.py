@@ -1,4 +1,4 @@
-from pyspark.sql.types import StructType, StructField, LongType, DoubleType, IntegerType, TimestampType
+import pyspark.sql.types
 from pyspark.sql.functions import lit, from_unixtime, col
 from pyspark.sql import DataFrame as Dataframe
 
@@ -7,8 +7,8 @@ from utility import get_path
 import os
 from zipfile import ZipFile
 from pyspark.sql import SparkSession
-from cross_cutting import config_manager
-from cross_cutting import technical_indicators as ti
+import config_manager
+import technical_indicators_spark as ti
 
 
 class Transform:
@@ -26,30 +26,35 @@ class Transform:
                     os.remove(path + file)
 
     def transform_and_load(self, symbol):
-        spark = SparkSession.builder.config("spark.jars", "postgresql-42.7.3.jar").master(
-            self.config.get_value('spark', 'host')).appName("transform").getOrCreate()
+        spark = (SparkSession.builder.
+                 master(self.config.get_value('spark', 'host')).
+                 config("spark.jars", "postgresql-42.7.3.jar").
+                 appName("transform").
+                 getOrCreate())
+
         path = get_path("spot", "klines", "daily", symbol, "1m")
 
         raw_df = None
-        schema = StructType([
-            StructField("start_time_numeric", LongType(), True),
-            StructField("open_price", DoubleType(), True),
-            StructField("high_price", DoubleType(), True),
-            StructField("low_price", DoubleType(), True),
-            StructField("close_price", DoubleType(), True),
-            StructField("volume", DoubleType(), True),
-            StructField("close_time_numeric", LongType(), True),
-            StructField("QV", DoubleType(), True),
-            StructField("number_of_trades", LongType(), True),
-            StructField("TBB", DoubleType(), True),
-            StructField("TBQ", DoubleType(), True),
-            StructField("I", IntegerType(), True)
+        schema = pyspark.sql.types.StructType([
+            pyspark.sql.types.StructField("start_time_numeric", pyspark.sql.types.LongType(), True),
+            pyspark.sql.types.StructField("open_price", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("high_price", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("low_price", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("close_price", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("volume", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("close_time_numeric", pyspark.sql.types.LongType(), True),
+            pyspark.sql.types.StructField("QV", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("number_of_trades", pyspark.sql.types.LongType(), True),
+            pyspark.sql.types.StructField("TBB", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("TBQ", pyspark.sql.types.DoubleType(), True),
+            pyspark.sql.types.StructField("I", pyspark.sql.types.IntegerType(), True)
         ])
 
 
         csv_files = [file for file in os.listdir(path) if file.endswith(".csv")]
         for file in csv_files:
-            df = spark.read.csv(path + file, header=False, schema=schema)
+            full_file_path = os.path.join('file:///', path, file)
+            df = spark.read.csv(full_file_path, header=False, schema=schema)
             if raw_df is None:
                 raw_df = df
             else:
@@ -59,9 +64,9 @@ class Transform:
         # TODO lit with eth id
         raw_df = raw_df.withColumn("symbol_id", lit(1)) \
             .withColumn("start_time", from_unixtime(col("start_time_numeric") / 1000, "yyyy-MM-dd HH:mm:ss.SSS")
-                        .cast(TimestampType())) \
+                        .cast(pyspark.sql.types.TimestampType())) \
             .withColumn("close_time", from_unixtime(col("close_time_numeric") / 1000, "yyyy-MM-dd HH:mm:ss.SSS")
-                        .cast(TimestampType()))
+                        .cast(pyspark.sql.types.TimestampType()))
 
         avg_df = ti.avg_price(raw_df)
 
@@ -70,6 +75,8 @@ class Transform:
         kpis_df = avg_df.drop("volume")
 
         kpis_df.printSchema()
+
+        kpis_df.show(250)
 
         self.spark_db_connector.write_to_db("f_klines", raw_df)
         self.spark_db_connector.write_to_db("f_dvkpi", kpis_df)
@@ -98,7 +105,6 @@ class Transform:
         return avg_df
 
 
-
 t = Transform()
-t.unzip("ETHEUR")
-t.transform_and_load("ETHEUR")
+t.unzip("etheur")
+t.transform_and_load("etheur")

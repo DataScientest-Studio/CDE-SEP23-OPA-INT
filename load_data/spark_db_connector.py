@@ -1,4 +1,5 @@
-from cross_cutting import config_manager
+import config_manager
+
 
 class SparkDBConnector:
     def __init__(self):

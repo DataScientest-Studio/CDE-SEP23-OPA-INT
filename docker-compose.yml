@@ -32,7 +32,9 @@ services:
       - db
 
   spark-master:
-    image: bitnami/spark:3.5.1
+    build:
+      context: ./load_data
+      dockerfile: Dockerfile
     command: bin/spark-class org.apache.spark.deploy.master.Master
     ports:
       - "9090:8080"
