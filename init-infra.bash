@@ -11,6 +11,6 @@ done
 echo "Running init_data script..."
 python init_data.py
 
-docker-compose up -d
+docker-compose up --build -d
 
 docker-compose exec spark-master python3 /load_data/run.py
