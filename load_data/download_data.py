@@ -40,7 +40,8 @@ def download_daily_klines(trading_type, symbols, num_symbols, intervals, dates, 
         for interval in intervals:
             for date in dates:
                 current_date = convert_to_date_object(date)
-                if current_date >= start_date and current_date < end_date:
+                print(current_date, end_date)
+                if current_date >= start_date and current_date <= end_date:
                     path = get_path(trading_type, "klines", "daily", symbol, interval)
                     file_name = "{}-{}-{}.zip".format(symbol.upper(), interval, date)
                     download_file(path, file_name, date_range, folder)

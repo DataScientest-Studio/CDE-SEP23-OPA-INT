@@ -13,7 +13,7 @@ import technical_indicators_spark as ti
 
 class Transform:
     def __init__(self):
-        self.config = config_manager.ConfigManager("settings.ini")
+        self.config = config_manager.ConfigManager('/load_data/settings.ini')
         self.spark_db_connector = SparkDBConnector()
 
     def unzip(self, symbol):
@@ -23,16 +23,17 @@ class Transform:
             if file.endswith(".zip"):
                 with ZipFile(path + file, 'r') as zip_ref:
                     zip_ref.extractall(path)
-                    os.remove(path + file)
+                    # os.remove(path + file)
 
     def transform_and_load(self, symbol):
         spark = (SparkSession.builder.
                  master(self.config.get_value('spark', 'host')).
-                 config("spark.jars", "postgresql-42.7.3.jar").
+                 config("spark.jars", "/load_data/postgresql-42.7.3.jar").
                  appName("transform").
                  getOrCreate())
 
         path = get_path("spot", "klines", "daily", symbol, "1m")
+        path = "/" + path
 
         raw_df = None
         schema = pyspark.sql.types.StructType([

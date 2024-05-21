@@ -1,5 +1,5 @@
-from load_data.download_data import load_historical_data_from_year
-from load_data.transform import Transform
+from download_data import load_historical_data_from_year
+from transform import Transform
 
 def run_all():
     load_historical_data_from_year(["etheur"], 2024)

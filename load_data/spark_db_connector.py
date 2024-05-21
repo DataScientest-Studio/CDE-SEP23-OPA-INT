@@ -3,7 +3,7 @@ import config_manager
 
 class SparkDBConnector:
     def __init__(self):
-        self.config = config_manager.ConfigManager("settings.ini")
+        self.config = config_manager.ConfigManager("/load_data/settings.ini")
 
     def write_to_db(self, table_name, raw_df):
         db_conn = self.config.get_value('pg', 'conn')
