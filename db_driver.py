@@ -6,7 +6,8 @@ import logging
 
 from settings import Settings
 
-def create_db(db_url):
+def create_db():
+    db_url = Settings.get_setting("db_conn")
     logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
     engine = create_engine(db_url)
     metadata = MetaData()
@@ -75,6 +76,7 @@ def create_db(db_url):
 
     try:
         metadata.create_all(engine, checkfirst=True)
+        print("created all db")
     except Exception as e:
         print(f"Error creating tables: {e}")
 
@@ -251,5 +253,4 @@ def getFirstTenRows(db_url, table_name):
 
         except Exception as e:
             print(f"Error retrieving data: {e}")
-
 

@@ -17,7 +17,7 @@ class Transform:
         self.spark_db_connector = SparkDBConnector()
 
     def unzip(self, symbol):
-        path = get_path("spot", "klines", "daily", symbol, "1m")
+        path = "/" + get_path("spot", "klines", "daily", symbol, "1m")
         zip_files = [file for file in os.listdir(path) if file.endswith(".zip")]
         for file in zip_files:
             if file.endswith(".zip"):
@@ -54,6 +54,7 @@ class Transform:
         csv_files = [file for file in os.listdir(path) if file.endswith(".csv")]
         for file in csv_files:
             full_file_path = os.path.join('file:///', path, file)
+            full_file_path = full_file_path.replace("file:////", "file:///")
             df = spark.read.csv(full_file_path, header=False, schema=schema)
             if raw_df is None:
                 raw_df = df
@@ -104,7 +105,3 @@ class Transform:
             avg_df = avg_df.union(kpi_df.select("dvkpi_timestamp", "dvkpi_timestamp_numeric", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"))
         return avg_df
 
-
-t = Transform()
-t.unzip("etheur")
-t.transform_and_load("etheur")

@@ -50,7 +50,19 @@ def download_file(base_path, file_name, date_range=None, folder=None):
         download_url = get_download_url(download_path)
 
         ssl_context = ssl.create_default_context(cafile=os.environ.get("SSL_CERT_FILE"))
+max_attempts = 5
+attempts = 0
+
+while attempts < max_attempts:
+    try:
         dl_file = urllib.request.urlopen(download_url, context=ssl_context)
+        # If the request is successful, the loop will break
+        break
+    except urllib.error.URLError as e:
+        print(f"Error: {e.reason}. Attempt {attempts + 1} of {max_attempts}. Retrying...")
+        attempts += 1
+        time.sleep(1)  # Wait for 1 second before retrying
+        
         length = dl_file.getheader('content-length')
         if length:
             length = int(length)

@@ -40,7 +40,7 @@ def download_daily_klines(trading_type, symbols, num_symbols, intervals, dates, 
         for interval in intervals:
             for date in dates:
                 current_date = convert_to_date_object(date)
-                if current_date >= start_date and current_date <= end_date:
+                if current_date >= start_date and current_date < end_date:
                     path = get_path(trading_type, "klines", "daily", symbol, interval)
                     file_name = "{}-{}-{}.zip".format(symbol.upper(), interval, date)
                     download_file(path, file_name, date_range, folder)
@@ -57,7 +57,7 @@ def load_historical_data_from_year(symbols, year):
     if not year:
         year = 2024
 
-    period = convert_to_date_object(datetime.today().strftime('%Y-%m-%d')) - convert_to_date_object(
+    period = convert_to_date_object((datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')) - convert_to_date_object(
         f"{year}-01-01")
     dates = pd.date_range(end=datetime.today(), periods=period.days + 1).to_pydatetime().tolist()
     dates = [date.strftime("%Y-%m-%d") for date in dates]
@@ -72,6 +72,3 @@ def load_historical_data_from_year(symbols, year):
                           folder=None,
                           checksum=0)
 
-
-
-load_historical_data_from_year(["etheur"], 2024)

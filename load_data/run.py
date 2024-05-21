@@ -7,10 +7,5 @@ def run_all():
     transformer.unzip("etheur")
     transformer.transform_and_load("etheur")
 
-def download():
-    load_historical_data_from_year(["etheur"], 2024)
-
-def trasnform():
-    transformer = Transform()
-    transformer.unzip("etheur")
-    transformer.transform_and_load("etheur")
+if __name__ == "__main__":
+    run_all()

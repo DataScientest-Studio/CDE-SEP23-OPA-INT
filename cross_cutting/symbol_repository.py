@@ -76,9 +76,3 @@ class SymbolRepository:
         except Exception as e:
             print(f"Error getting last kpi timestamp for symbol_id: {symbol}", e)
 
-
-
-
-
-sr = SymbolRepository()
-sr.add_symbol("ETHEUR")
