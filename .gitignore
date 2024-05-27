@@ -9,3 +9,5 @@ aggr_trades.txt
 *.iml
 *.pyc
 .idea/
+testing/
+old/

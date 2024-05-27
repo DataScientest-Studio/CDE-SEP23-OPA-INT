@@ -4,11 +4,11 @@ import time
 
 from binance import ThreadedWebsocketManager
 from binance.client import Client
-
+#from binance_streams import TradingBot
 import binance_recent_data
 import binance_streams
 import load_data
-import ml_train
+import ml_training as ml_train
 
 
 
@@ -66,7 +66,6 @@ if recreate_tables == "True":
 #get symbol_id
 symbol_id = load_data.load_symbol_id(symbol_txt)
 
-
 # Load historical data if not yet available in database
 # Historical data can be loaded from disk (fast) or through API calls (slow)
 if load_historical_data == "True":
@@ -76,22 +75,22 @@ if load_historical_data == "True":
 
 # If train_ml is True, Machine Learning Model is (re)trained and a new model is stored on disk and metadata in database
 if train_ml == "True":
-    ml_train.get_data(settings["db_conn"], settings["kpi_table"], symbol_id)
+    ml_train.estimate_new_model(settings["db_conn"], settings["kpi_table"], symbol_id)
 
-
-
-# Get Recent Data
-l_data_type = ["klines", "aggr_trades"]
 
 # get Recent data (klines and aggr_trades), recent = since noon today
 dict_df_res = load_data.load_recent_data(api_key, api_sec, symbol_id)
 
-# TODO: apply ML model to data from stream
 model_file_name = ml_train.get_valid_model(db_url, symbol_id)[0]
 scaler_file_name = model_file_name.replace("model", "scaler").replace("keras", "bin")
 df_input_prediction = load_data.create_derived_kpis(dict_df_res["klines"], symbol_id)
-y_pred = ml_train.get_predicted_data(model_file_name, df_input_prediction, scaler_file_name)
-inv_decision = ml_train.make_investment_decision(y_pred)
+y_pred = ml_train.get_predicted_data(model_file_name, scaler_file_name, df_input_prediction, symbol_id)
+
+bin_client = Client(api_key, api_sec, testnet=True)
+current_price = bin_client.get_symbol_ticker(symbol=symbol_txt)["price"]
+bin_client.close_connection()
+
+inv_decision = ml_train.make_investment_decision(y_pred, current_price)
 
 #TODO: concatenate previous data frame with stream and make investment decision
 # Retrieve Data Stream

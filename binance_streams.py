@@ -35,7 +35,7 @@ async def get_kline_data(bsm, api_key, api_secret, symbol, start_time):
             if time.time() - start_time > 10:
                 print("Closing klines stream after 15 seconds")
                 break
-            #print(res_df)
+            print(res)
 
 
 async def get_aggr_trade_data(bsm, api_key, api_secret, symbol, start_time):
@@ -54,7 +54,7 @@ async def get_aggr_trade_data(bsm, api_key, api_secret, symbol, start_time):
             if time.time() - start_time > 15:
                 print("Closing aggr_trades stream after 15 seconds")
                 break
-            #print(res_df)
+            print(res)
 
 
 async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
@@ -71,6 +71,7 @@ async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
 
 def run_main(api_key, api_secret, coin="ETH", fiat_curr="EUR", flag_use_demo_acc=True):
     return asyncio.run(main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc))
+
 
 # if __name__ == "__main__":
 # asyncio.run(main())

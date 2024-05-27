@@ -156,51 +156,28 @@ def delete_data_from_table(db_url, table_name, symbol_id):
             print(f"Error deleting data: {e}")
 
 # Manipulates
-def create_derived_kpis(db_url, symbol_id, approximate_avg_price, df_klines):
+def create_derived_kpis(db_url, symbol_id, df_klines):
     engine = create_engine(db_url, echo=False)
 
     # Calculate average prices first
     with engine.connect() as connection:
         try:
-            if approximate_avg_price == "True":
-                if df_klines is None:
-                    klines = Table("f_klines", MetaData(), autoload_with=engine)
-                    stmt = select(klines)
-                    result = connection.execute(stmt)
-                else:
-                    result = df_klines
-                result_df = pd.DataFrame(result)
-                result_df = result_df.reset_index()
-                result_df["dvkpi_kpi_value"] = result_df[["open_price", "close_price"]].mean(axis=1)
-                result_df["dvkpi_kpi"] = "AVG_PRICE"
-                result_df["dvkpi_symbol_id"] = symbol_id
-                result_df = result_df[["start_time","close_time", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]]
-                result_df.columns = ["start_time","dvkpi_timestamp", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]
-                result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"]]
-                #replace NaN with None
-                result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
-
-
-            else:
-                #TODO add join based on local dataframe (df_klines) if df_klines is not None
+            if df_klines is None:
                 klines = Table("f_klines", MetaData(), autoload_with=engine)
-                aggrtrades = Table("f_aggr_trades", MetaData(), autoload_with=engine)
-                query = (
-                    select(klines.c.start_time,klines.c.close_time, aggrtrades.c.quantity, aggrtrades.c.price)
-                    .select_from(klines.outerjoin(aggrtrades,
-                                                  aggrtrades.c.transact_time.between(klines.c.start_time, klines.c.close_time)))
-                )
-
-                result = connection.execute(query)
-                result_df = pd.DataFrame(result)
-                result_df = result_df.groupby(["start_time", "close_time"]).apply(lambda x: np.average(x.price, weights = x.quantity))
-                result_df = result_df.reset_index()
-                result_df["dvkpi_kpi"] = "AVG_PRICE"
-                result_df["dvkpi_symbol_id"] = symbol_id
-                result_df.columns = ["start_time","dvkpi_timestamp", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]
-                result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"]]
-                #replace NaN with None
-                result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
+                stmt = select(klines)
+                result = connection.execute(stmt)
+            else:
+                result = df_klines
+            result_df = pd.DataFrame(result)
+            result_df = result_df.reset_index()
+            result_df["dvkpi_kpi_value"] = result_df[["open_price", "close_price"]].mean(axis=1)
+            result_df["dvkpi_kpi"] = "AVG_PRICE"
+            result_df["dvkpi_symbol_id"] = symbol_id
+            result_df = result_df[["start_time","close_time", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]]
+            result_df.columns = ["start_time","dvkpi_timestamp", "dvkpi_kpi_value", "dvkpi_kpi", "dvkpi_symbol_id"]
+            result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"]]
+            #replace NaN with None
+            result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
 
         except Exception as e:
             print(f"Error calculating average prices for derived KPIs: {e}")
@@ -220,7 +197,7 @@ def filter_derived_kpis(db_url, symbol_id, df):
             max_timestamp = pd.to_datetime(max_timestamp, format='%Y-%m-%d %H:%M:%S', utc=True)#.to_datetime64()
 
             # Filter result_df for only new data
-            df['dvkpi_timestamp'] = pd.to_datetime(df['dvkpi_timestamp'], format='%Y-%m-%d %H:%M:%S')
+            df['dvkpi_timestamp'] = pd.to_datetime(df['dvkpi_timestamp'], format='%Y-%m-%d %H:%M:%S', utc=True)
             df = df[df["dvkpi_timestamp"] > max_timestamp]
             return df
 
@@ -263,3 +240,17 @@ def getFirstTenRows(db_url, table_name):
 
         except Exception as e:
             print(f"Error retrieving data: {e}")
+
+def create_derived_kpis_from_pred(df_pred_klines, symbol_id):
+    try:
+            result_df = pd.DataFrame(df_pred_klines)
+            result_df = result_df.reset_index()
+            result_df.columns = ["dvkpi_timestamp", "dvkpi_kpi_value"]
+            result_df["dvkpi_kpi"] = "AVG_PRICE"
+            result_df["dvkpi_symbol_id"] = symbol_id
+            result_df = result_df[["dvkpi_timestamp", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"]]
+            #replace NaN with None
+            result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
+            return result_df
+    except Exception as e:
+        print(f"Error calculating average prices for derived KPIs for prediction: {e}")

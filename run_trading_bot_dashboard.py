@@ -188,7 +188,7 @@ def run_app():
 
             st.write("Making predictions from recent data.")
             df_input_prediction = load_data.create_derived_kpis(dict_df_res["klines"], symbol_id)
-            y_pred = ml_train.get_predicted_data(model_file_name, df_input_prediction, scaler_file_name)
+            y_pred = ml_train.get_predicted_data(model_file_name, scaler_file_name, df_input_prediction, symbol_id)
             inv_decision = ml_train.make_investment_decision(y_pred)
 
             st.write("**Investment Decision: ", inv_decision,'.**')
