@@ -1,27 +1,18 @@
+""" Use this file to run the trading bot without API.
+ This is useful for testing the trading bot without the need to run the API.
+ It has more features due to settings, e.g. we can load historical data or retrain the model."""
+
 import json
 import os
 import time
 
 from binance import ThreadedWebsocketManager
 from binance.client import Client
-#from binance_streams import TradingBot
-import binance_recent_data
 import binance_streams
 import load_data
 import ml_training as ml_train
 
 
-
-def btc_trade_history(msg):
-    ''' define how to process incoming WebSocket messages '''
-    if msg['e'] != 'error':
-        print(msg['c'])
-        btc_price['last'] = msg['c']
-        btc_price['bid'] = msg['b']
-        btc_price['last'] = msg['a']
-        btc_price['error'] = False
-    else:
-        btc_price['error'] = True
 
 
 def load_settings(settings_file_name):
@@ -59,7 +50,6 @@ else:
     f.close()
 
 # Startup DB config
-
 if recreate_tables == "True":
     load_data.create_db()
 
@@ -94,22 +84,4 @@ inv_decision = ml_train.make_investment_decision(y_pred, current_price)
 
 #TODO: concatenate previous data frame with stream and make investment decision
 # Retrieve Data Stream
-if settings["websocket_type"] != "async":
-    bin_client = Client(api_key, api_sec, testnet=flag_use_demo_acc)
-    # print(bin_client.get_account())
-    #print("Welcome")
-    print("Your Account balance: ", bin_client.get_asset_balance(asset='BTC'))
-    # Latest btc price
-    btc_price = bin_client.get_symbol_ticker(symbol="BTCUSDT")
-    print("The current BTC price is: ", btc_price)
-
-    # init and start the WebSocket
-    bsm = ThreadedWebsocketManager()
-    bsm.start()
-    bsm.start_symbol_ticker_socket(callback=btc_trade_history, symbol='BTCUSDT')
-    # Going to sleep for 20s
-    time.sleep(20)
-    bsm.stop()
-else:
-    # from streamz import Stream
-    binance_streams.run_main(api_key, api_sec, coin, fiat_curr, flag_use_demo_acc)
+binance_streams.run_main(api_key, api_sec, coin, fiat_curr, flag_use_demo_acc)

@@ -56,6 +56,3 @@ def fix_trades_dataset(df, symbol_id):
     df['symbol_id'] = symbol_id
     return df
 
-#df_symbol = pd.DataFrame({'symbol': 'ETHEUR'}, index=[0])
-#print(df_symbol.head(5))
-

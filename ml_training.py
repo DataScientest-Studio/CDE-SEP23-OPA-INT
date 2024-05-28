@@ -17,12 +17,9 @@ from load_data import create_derived_kpis
 lags_considered = 30
 
 
-
-
 def build_model():
     lstm_model = Sequential()
     lstm_model.add(LSTM(50, return_sequences=True, input_shape=(lags_considered, 10)))
-    # lstm_model.add(LSTM(50))
     lstm_model.add(Dropout(0.2))
     lstm_model.add(Dense(1))
     lstm_model.compile(loss='mse', optimizer='adam')

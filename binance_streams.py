@@ -1,10 +1,14 @@
+"""Function opens a websocket connection to Binance and streams klines and aggregate trades for a given symbol.
+   The data is then stored in a temporary database table. This here has no tradingbot logic implemented.
+   The function is not called through the API but from the standard run_trading_bot.py script."""
+
 import asyncio
 import os, time
 import pandas as pd
 import binance_response_formatter as bf
 import db_driver
 from settings import Settings
-from binance import AsyncClient, BinanceSocketManager, Client
+from binance import AsyncClient, BinanceSocketManager
 
 
 os.environ['TZ'] = 'UTC' # set timezone to UTC
@@ -15,12 +19,7 @@ key_agg_trades = ["a", "p", "q", "f", "l", "T", "m", "M"]
 colnames_agg_trades = ["AggTradeID", "Price", "Quantity", "FirstTradeID", "LastTradeID", "Timestamp"]
 db_url = Settings.get_setting("db_conn")
 
-def ask_exit(signame, loop):
-    print("got signal %s: exit" % signame)
-    loop.stop()
-
-
-async def get_kline_data(bsm, api_key, api_secret, symbol, start_time):
+async def get_kline_data(bsm, symbol, start_time):
 
     symbol_multi_socket = symbol.lower() + '@kline_1m'
     async with bsm.multiplex_socket([symbol_multi_socket]) as stream:
@@ -38,7 +37,7 @@ async def get_kline_data(bsm, api_key, api_secret, symbol, start_time):
             print(res)
 
 
-async def get_aggr_trade_data(bsm, api_key, api_secret, symbol, start_time):
+async def get_aggr_trade_data(bsm, symbol, start_time):
 
     symbol_multi_socket = symbol.lower() + '@aggTrade'
 
@@ -63,15 +62,11 @@ async def main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc):
 
     symbol_txt = coin + fiat_curr
     start_time = time.time()
-    await asyncio.gather(get_kline_data(bsm, api_key, api_secret, symbol_txt, start_time),
-                         get_aggr_trade_data(bsm, api_key, api_secret, symbol_txt, start_time))
+    await asyncio.gather(get_kline_data(bsm, symbol_txt, start_time),
+                         get_aggr_trade_data(bsm, symbol_txt, start_time))
     await asyncio.sleep(10)
     await client.close_connection()
 
 
 def run_main(api_key, api_secret, coin="ETH", fiat_curr="EUR", flag_use_demo_acc=True):
     return asyncio.run(main(api_key, api_secret, coin, fiat_curr, flag_use_demo_acc))
-
-
-# if __name__ == "__main__":
-# asyncio.run(main())

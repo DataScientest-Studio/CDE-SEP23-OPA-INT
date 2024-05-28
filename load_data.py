@@ -7,7 +7,6 @@ import binance_response_formatter as bf
 import technical_indicators as ti
 import binance_recent_data
 import json
-import time
 
 
 # Startup DB config
@@ -31,10 +30,6 @@ def load_historical_data(api_key, api_sec, symbol_id=1):
     load_from_csv = Settings.get_setting["load_from_csv"]
     # First date across time series, from this date onwards data is fetched
     ts_start_date_numeric = Settings.get_setting("time_series_start_numeric")
-
-    # TODO write function to get symbol_id for symbol
-    # df_symbol = pd.DataFrame({'symbol_id': 1, 'symbol': symbol_txt}, index=[0])
-    # db_driver.insert_df_to_table(df_symbol, Settings.get_setting("db_conn"), Settings.get_setting('symbols_table'))
 
     dict_frames = {}
     l_data_type = ["klines", "aggr_trades"]
@@ -78,7 +73,6 @@ def load_historical_data(api_key, api_sec, symbol_id=1):
     df_aggregates = bf.fix_trades_dataset(df_aggregates, symbol_id)
 
     # TODO develop function which checks for completeness
-
     # Insert concatenated dataframe into db
     db_driver.insert_df_to_table(df_aggregates, Settings.get_setting("db_conn"),
                                  Settings.get_setting('aggregate_trades_table'))
@@ -86,10 +80,6 @@ def load_historical_data(api_key, api_sec, symbol_id=1):
     data_type = "klines"
     filename_output = (settings["tables"][data_type]["file_path_hist"] +
                        settings["tables"][data_type]["filename_output"])
-
-    # Check Data availability in database
-    min_date_str, max_date_str = get_min_and_max_dates(Settings.get_setting("db_conn"),
-                                                       Settings.get_setting('klines_table'))
 
     if load_from_csv == "True":
         print("Loading data from csv for klines")
@@ -149,6 +139,8 @@ def load_recent_data(api_key, api_sec, symbol_id=1):
     ts_start_date_numeric = min_date_numeric
 
     # maximum timestamp available in Database
+    # Bot needs at least 4 hours of data due to MA calculations
+    # TODO: if it was called early in the morning adjust max_date_numeric
     max_date_numeric = datetime.combine(date.today(), datetime.min.time()).timestamp() * 1000
 
     for data_type in l_data_type:
@@ -259,7 +251,6 @@ def get_min_and_max_dates(db_url, table_name):
         try:
             if table_name == "f_aggr_trades":
                 result = connection.execute(f'SELECT MIN(tx_time_numeric), MAX(tx_time_numeric) FROM {table_name}')
-            # TODO add numeric conversion of start time
             elif table_name == "f_klines":
                 result = connection.execute(f'SELECT MIN(start_time), MAX(start_time) FROM {table_name}')
             else:

@@ -1,8 +1,6 @@
 import pandas as pd
 from binance import Client
-import db_driver
 import time
-import datetime as dt
 
 
 def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data_type,
@@ -14,8 +12,9 @@ def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data
     data_return = pd.DataFrame({})
     ts_latest_value = ts_start_date_numeric
 
-    # explanation range: numeric values are in milliseconds. We have a limit of 1000. Since we want 1m intervals the step must be 1000 * 60 *1000
-    #TODO extend the loop for aggregate trades as theres no guarantee that the range is always homogenous
+    # explanation range: numeric values are in milliseconds. We have a limit of 1000.
+    # Since we want 1m intervals the step must be 1000 * 60 *1000
+
     #TODO include try and except in case that query yields error
     while ts_latest_value < ts_end_date_numeric-1000*seconds_shift:
         if not (ts_latest_value >= timespan_av_min and ts_latest_value <= timespan_av_max):
