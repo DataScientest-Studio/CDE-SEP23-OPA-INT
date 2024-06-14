@@ -41,9 +41,9 @@ https://www.binance.com/en/support/faq/how-to-download-historical-market-data-on
 
 ### DB schema:
 
-![DB Schema](DataSchema.png)
+![DB Schema](docs/DataSchema.png)
 
 
 ## Extras
 
-![NAVIGATE THE DB TREE](image.png)
+![NAVIGATE THE DB TREE](docs/image.png)
