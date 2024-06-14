@@ -1,10 +1,4 @@
 # Ignore key files
-async_2.py
-async_socket.py
-connect_sockets.py
-functions_testing.py
-kline_data.txt
-aggr_trades.txt
 
 *.iml
 *.pyc
@@ -13,4 +7,4 @@ testing/
 old/
 
 .idea/workspace.xml
-.ds_store
+.DS_Store
