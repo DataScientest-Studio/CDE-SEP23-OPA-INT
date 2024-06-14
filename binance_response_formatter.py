@@ -31,7 +31,8 @@ def fix_klines_dataset(df, symbol_id):
         'number_of_trades': 'int'
     })
 
-    df['symbol_id'] = symbol
+    df['symbol_id'] = symbol_id
+    return df
 
 
 def fix_trades_dataset(df, symbol_id):
@@ -52,8 +53,6 @@ def fix_trades_dataset(df, symbol_id):
         "is_buyer_maker": 'int',
         "best_price_match": 'int'
     })
-
-
-#df_symbol = pd.DataFrame({'symbol': 'ETHEUR'}, index=[0])
-#print(df_symbol.head(5))
+    df['symbol_id'] = symbol_id
+    return df
 

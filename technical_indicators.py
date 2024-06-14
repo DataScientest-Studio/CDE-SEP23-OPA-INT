@@ -1,5 +1,4 @@
-from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, Boolean, MetaData, TIMESTAMP, inspect, \
-    insert, select, text
+from sqlalchemy import create_engine, Table, MetaData, select
 import pandas as pd
 import numpy as np
 import db_driver as dbd
@@ -11,7 +10,7 @@ def ewma(db_url, symbol_id, n_periods, df_klines=None):
         try:
             if df_klines is None:
                 avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-                #TODO: add filter on symbol_id
+
                 query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'
                                                   and avg_prices.c.symbol_id == symbol_id))
                 # Execute the query and fetch the results
@@ -38,7 +37,7 @@ def simple_ma(db_url, symbol_id, n_periods, df_klines=None):
         try:
             if df_klines is None:
                 avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-                # TODO: add filter on symbol_id
+
                 query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE'
                                                   and avg_prices.c.symbol_id == symbol_id))
                 # Execute the query and fetch the results
@@ -67,7 +66,7 @@ def rsi(db_url, symbol_id, periods=14, df_klines=None):
         try:
             if df_klines is None:
                 avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-                # TODO: add filter on symbol_id
+
                 query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE' and avg_prices.c.symbol_id ==
                                                   symbol_id))
                 # Execute the query and fetch the results
@@ -99,47 +98,4 @@ def rsi(db_url, symbol_id, periods=14, df_klines=None):
 
         except Exception as e:
             print(f"Error calculating RSI: {e}")
-    return result_df
-
-def force_index(db_url, symbol_id, n_periods=50, df_klines=None):
-
-    engine = create_engine(db_url)
-    with engine.connect() as connection:
-        try:
-            if df_klines is None:
-                avg_prices = Table("f_dvkpi", MetaData(), autoload_with=engine)
-                # TODO: add filter on symbol_id
-                query = select(avg_prices).where((avg_prices.c.dvkpi_kpi == 'AVG_PRICE' and avg_prices.c.symbol_id
-                                                  == symbol_id))
-                # Execute the query and fetch the results
-                result = connection.execute(query)
-            else:
-                result = df_klines.copy(deep=True)
-
-            result_df = pd.DataFrame(result)
-            min_timestamp = result_df["dvkpi_timestamp"].min()
-            result_df["dvkpi_timestamp"] = pd.to_datetime(result_df["dvkpi_timestamp"], utc=True)
-            # filter out rows where price = None
-            klines = Table("f_klines", MetaData(), autoload_with=engine)
-            query = select(klines).where((klines.c.symbol_id == 1 and klines.c.close_time >= min_timestamp))
-            # Execute the query and fetch the results
-            result = connection.execute(query)
-            klines_df = pd.DataFrame(result)
-
-            result_df = result_df.merge(klines_df, how='left', left_on = 'dvkpi_timestamp', right_on='close_time')
-
-
-
-            fi = pd.Series(result_df["dvkpi_kpi_value"].diff(n_periods) * result_df["volume"],
-                           name='FI_' + str(n_periods))
-
-            result_df["dvkpi_kpi"] = "FI_" + str(n_periods)
-            result_df = pd.concat([result_df[["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi"]], fi], axis=1)
-            result_df.columns = ["dvkpi_timestamp", "dvkpi_symbol_id", "dvkpi_kpi", "dvkpi_kpi_value"]
-            result_df["dvkpi_kpi_value"] = result_df["dvkpi_kpi_value"].replace(np.nan,None)
-            if df_klines is None:
-                dbd.insert_df_to_table(result_df, db_url, "f_dvkpi")
-
-        except Exception as e:
-            print(f"Error calculating Force Index: {e}")
     return result_df
