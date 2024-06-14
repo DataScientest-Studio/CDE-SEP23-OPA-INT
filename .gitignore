@@ -7,3 +7,4 @@ testing/
 old/
 
 .idea/workspace.xml
+.DS_Store
