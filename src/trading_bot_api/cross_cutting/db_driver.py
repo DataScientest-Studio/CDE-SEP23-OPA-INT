@@ -267,3 +267,8 @@ def create_derived_kpis_from_pred(df_pred_klines, symbol_id):
             return result_df
     except Exception as e:
         print(f"Error calculating average prices for derived KPIs for prediction: {e}")
+
+
+def load_data_from_db_table(db_url, table_name, symbol_id=1):
+    df = pd.DataFrame(get_data_from_db_table(db_url, table_name, symbol_id))
+    return df

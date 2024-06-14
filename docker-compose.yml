@@ -1,9 +1,5 @@
 version: '3.8'
 services:
-  # binance_connector:
-  #   build: .
-  #   depends_on:
-  #     - db
 
   db:
     container_name: postgres
@@ -28,6 +24,15 @@ services:
       PGADMIN_DEFAULT_PASSWORD: admin123
     ports:
       - "5050:80"  
+    depends_on:
+      - db
+
+  trading_bot_api:
+    container_name: trading_bot_api
+    build: ./src
+    restart: always
+    ports:
+      - "8086:8086"
     depends_on:
       - db
 
