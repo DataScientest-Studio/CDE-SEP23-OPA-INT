@@ -83,7 +83,7 @@ def estimate_new_model(db_url, table_name, symbol_id=1, num_epochs=30):
     scaler_name = "lstm_scaler_" + model_datetimestamp + ".bin"
 
     # store model and scaler to disk
-    keras_reg.model_.save('./models/' + model_name)
+    keras_reg.model_.save('../models/' + model_name)
     dump(scaler, './models/' + scaler_name, compress=True)
 
     # log model in database
@@ -104,11 +104,11 @@ def get_transformed_data(df_data, scaler):
 
 
 def load_model_file(model_file_name):
-    return load_model("./models/" + model_file_name)
+    return load_model("../models/" + model_file_name)
 
 
 def load_scaler_file(scaler_file_name):
-    return load("./models/" + scaler_file_name)
+    return load("../models/" + scaler_file_name)
 
 
 def manipulate_data(X):

@@ -35,6 +35,8 @@ services:
       - "8086:8086"
     depends_on:
       - db
+    environment:
+      DB_HOST: db
 
 volumes:
   db_data:
