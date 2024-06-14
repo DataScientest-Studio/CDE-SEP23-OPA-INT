@@ -2,7 +2,6 @@ import pandas as pd
 from binance import Client
 import time
 
-
 def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data_type,
                                timespan_av_min, timespan_av_max, ts_start_date_numeric,
                                seconds_shift):
@@ -46,14 +45,4 @@ def query_binance(api_key, api_secret, symbol, data_type, t):
         print("Data Type not found")
     return resulting_df
 
-def write_data_to_file(filename_output, queried_df, range_start_cols, range_end_cols):
-    try:
-        file = open(filename_output, "x")
-    except:
-        file = open(filename_output, "w")
-    df_recent_write = queried_df.iloc[:, range_start_cols:range_end_cols]
-
-    with open(filename_output, "a") as file:
-        file.write(df_recent_write.to_string(header=False, index=False))
-    return df_recent_write
 

@@ -36,7 +36,6 @@ def fix_klines_dataset(df, symbol_id):
 
 
 def fix_trades_dataset(df, symbol_id):
-    #df = df.drop(df.columns[-1], axis=1)
     df.columns = [
         'agg_trade_id', 'price', 'quantity', 'first_trade_id',
         'last_trade_id', 'transact_time', 'is_buyer_maker', "best_price_match"]

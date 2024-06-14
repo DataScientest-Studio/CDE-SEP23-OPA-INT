@@ -1,11 +1,9 @@
-import db_driver
-from settings import Settings
+from src.trading_bot_api.cross_cutting import Settings, technical_indicators as ti
 from sqlalchemy import create_engine, Table, MetaData, select
 from datetime import datetime, date
 import pandas as pd
-import binance_response_formatter as bf
-import technical_indicators as ti
-import binance_recent_data
+from src.trading_bot_api.cross_cutting import binance_response_formatter as bf, db_driver
+from src.trading_bot_api import binance_recent_data
 import json
 
 

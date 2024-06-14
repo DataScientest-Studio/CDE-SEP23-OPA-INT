@@ -4,7 +4,6 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 from datetime import datetime
-from settings import Settings
 from scikeras.wrappers import KerasRegressor
 from sklearn.preprocessing import StandardScaler
 from joblib import dump, load
@@ -12,7 +11,8 @@ from keras.models import Sequential, load_model
 from keras.layers import Dense, LSTM, Dropout
 
 from sqlalchemy import create_engine, Table, MetaData, insert, select, update
-from load_data import create_derived_kpis
+from cross_cutting.db_driver import create_derived_kpis
+import api_settings
 
 lags_considered = 30
 
@@ -178,7 +178,7 @@ def get_valid_model(db_url, symbol_id=1):
 
 
 def insert_model_to_db(model_file_name, model_active, symbol_id=1):
-    db_url = Settings.get_setting("db_conn")
+    db_url = api_settings.db_conn
     engine = create_engine(db_url)
 
     with engine.connect() as connection:

@@ -1,7 +1,8 @@
-from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, Boolean, MetaData, TIMESTAMP, inspect, \
-    insert, select, text, PrimaryKeyConstraint, ForeignKey, func
-import pandas as pd
 import numpy as np
+import pandas as pd
+from sqlalchemy import create_engine, Table, Column, Integer, Numeric, String, MetaData, TIMESTAMP, inspect, \
+    insert, select, PrimaryKeyConstraint, ForeignKey
+
 
 def create_db(db_url, create_dimensions_first=False):
     engine = create_engine(db_url)
@@ -240,6 +241,18 @@ def getFirstTenRows(db_url, table_name):
 
         except Exception as e:
             print(f"Error retrieving data: {e}")
+
+def load_symbol_id(db_url, symbol):
+    engine = create_engine(db_url)
+    with engine.connect() as connection:
+        try:
+            symbols = Table("d_symbols", MetaData(), autoload_with=engine)
+            stmt = select(symbols).where(symbols.c.symbol == symbol)
+            result = connection.execute(stmt)
+            symbol_id = pd.DataFrame(result).iloc[0, 0]
+        except Exception as e:
+            print(f"Error retrieving data: {e}")
+    return symbol_id
 
 def create_derived_kpis_from_pred(df_pred_klines, symbol_id):
     try:
