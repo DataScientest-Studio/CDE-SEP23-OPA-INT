@@ -11,3 +11,6 @@ aggr_trades.txt
 .idea/
 testing/
 old/
+
+.idea/workspace.xml
+.ds_store

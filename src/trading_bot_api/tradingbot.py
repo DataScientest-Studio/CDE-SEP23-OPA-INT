@@ -10,7 +10,6 @@ import api_settings
 
 from binance import AsyncClient, BinanceSocketManager, Client
 import binance_recent_data as brd
-import utils as utils
 
 os.environ['TZ'] = 'UTC'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -84,7 +83,7 @@ class TradingBot:
         model = ml_train.load_model_file(model_file_name)
         scaler = ml_train.load_scaler_file(scaler_file_name)
 
-        dict_df_res = utils.load_recent_data(self.api_key, self.api_secret, symbol_id)
+        dict_df_res = brd.load_recent_data(self.api_key, self.api_secret, symbol_id)
         df_input_prediction = kpis.create_derived_kpis(dict_df_res["klines"], symbol_id, create_from_predictions=False)
         return ml_train.get_predicted_data(model, scaler, df_input_prediction, symbol_id, self.forecast_timespan)
 
@@ -164,7 +163,7 @@ class TradingBot:
         current_price = bin_client.get_symbol_ticker(symbol=symbol)["price"]
         bin_client.close_connection()
 
-        df_klines = load_data_from_db_table(db_url, api_settings.klines_stream_table)
+        df_klines = db_driver.load_data_from_db_table(db_url, api_settings.klines_stream_table)
         df_input_prediction = kpis.create_derived_kpis(df_klines, symbol_id)
         predicted_price = ml_train.get_predicted_data(ml_model, ml_scaler, df_input_prediction, symbol_id, forecast_timespan)
         self.yield_predictions_and_current_price(current_price, predicted_price)

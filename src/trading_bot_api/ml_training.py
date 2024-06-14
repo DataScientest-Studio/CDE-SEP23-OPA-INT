@@ -4,7 +4,7 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 from datetime import datetime
-from scikeras.wrappers import KerasRegressor
+import scikeras.wrappers
 from sklearn.preprocessing import StandardScaler
 from joblib import dump, load
 from keras.models import Sequential, load_model
@@ -72,7 +72,7 @@ def estimate_new_model(db_url, table_name, symbol_id=1, num_epochs=30):
     testX, testY = createXY(scaled_test, lags_considered)
 
     # Setup Keras Regressor
-    keras_reg = KerasRegressor(build_fn=build_model)
+    keras_reg = scikeras.wrappers.KerasRegressor(build_fn=build_model)
     keras_reg.fit(trainX, trainY, epochs=num_epochs,
                   batch_size=64, verbose=1,
                   validation_data=(testX, testY),
