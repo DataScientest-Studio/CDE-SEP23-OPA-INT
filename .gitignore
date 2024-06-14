@@ -11,3 +11,5 @@ aggr_trades.txt
 .idea/
 testing/
 old/
+
+.DS_Store
