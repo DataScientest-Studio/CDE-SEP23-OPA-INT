@@ -2,7 +2,8 @@ FROM python:3.12
 
 WORKDIR /app
 
-COPY . .
+COPY ./trading_bot_api ./trading_bot_api
+COPY ./models ./models
 
 RUN apt-get update && apt-get install -y libhdf5-dev
 RUN pip install --upgrade pip
