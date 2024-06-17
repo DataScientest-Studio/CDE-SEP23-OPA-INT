@@ -1,3 +1,5 @@
+import os
+
 spark = dict(
     host="spark://spark-master:7077"
 )
@@ -7,3 +9,5 @@ pg = dict(
     user="db_user",
     password="pgpassword123"
 )
+
+download_year = os.environ.get("DOWNLOAD_YEAR", 2024)

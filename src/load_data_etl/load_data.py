@@ -9,7 +9,7 @@ def load_historical_data_from_year(symbols, year):
         year = 2024
 
     period = convert_to_date_object(datetime.today().strftime('%Y-%m-%d')) - convert_to_date_object(
-            f"{year}-01-01")
+        f"01-01-{year}")
     dates = pd.date_range(end=datetime.today(), periods=period.days + 1).to_pydatetime().tolist()
     dates = [date.strftime("%Y-%m-%d") for date in dates]
 

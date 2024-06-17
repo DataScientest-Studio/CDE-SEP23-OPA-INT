@@ -55,20 +55,25 @@ def download_daily_klines(trading_type, symbols, num_symbols, intervals, dates, 
 
 
 def load_historical_data_from_year(symbols, year):
-    if not year:
-        year = 2024
+    try:
+        if not year:
+            year = 2024
 
-    period = convert_to_date_object((datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')) - convert_to_date_object(
-        f"{year}-01-01")
-    dates = pd.date_range(end=datetime.today(), periods=period.days + 1).to_pydatetime().tolist()
-    dates = [date.strftime("%Y-%m-%d") for date in dates]
+        period = convert_to_date_object((datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')) - convert_to_date_object(
+            datetime.date(f"{year}-01-01"))
+        dates = pd.date_range(end=datetime.today(), periods=period.days + 1).to_pydatetime().tolist()
+        dates = [date.strftime("%Y-%m-%d") for date in dates]
 
-    download_daily_klines(trading_type="spot",
-                          symbols=symbols,
-                          num_symbols=len(symbols),
-                          dates=dates,
-                          intervals=INTERVALS,
-                          start_date=None,
-                          end_date=None,
-                          folder=None,
-                          checksum=0)
+        download_daily_klines(trading_type="spot",
+                              symbols=symbols,
+                              num_symbols=len(symbols),
+                              dates=dates,
+                              intervals=INTERVALS,
+                              start_date=None,
+                              end_date=None,
+                              folder=None,
+                              checksum=0)
+        return True
+
+    except Exception as e:
+        return False
