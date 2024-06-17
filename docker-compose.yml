@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.12'
 services:
 
   db:
@@ -51,7 +51,7 @@ services:
       - "9090:8080"
       - "7077:7077"
     volumes:
-      - ./load_data/data:/data
+      - data-volume:/load_data/data
 
   spark-worker-1:
     image: bitnami/spark:3.5.1
@@ -64,7 +64,7 @@ services:
       SPARK_WORKER_MEMORY: 2g
       SPARK_MASTER_URL: spark://spark-master:7077
     volumes:
-      - ./load_data/data:/data
+      - data-volume:/load_data/data
 
   spark-worker-2:
     image: bitnami/spark:3.5.1
@@ -77,7 +77,7 @@ services:
       SPARK_WORKER_MEMORY: 2g
       SPARK_MASTER_URL: spark://spark-master:7077
     volumes:
-      - ./load_data/data:/data
+      - data-volume:/load_data/data
 
   # trading_bot_api:
   #   container_name: trading_bot_api
@@ -91,5 +91,7 @@ services:
   #     DB_CONN: "postgresql://db_user:pgpassword123@db/opa_db"
 
 volumes:
+  data-volume:
+    driver: local
   db_data:
-    name: db_data
+    driver: local

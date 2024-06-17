@@ -8,3 +8,5 @@ old/
 
 .idea/workspace.xml
 .DS_Store
+
+src/load_data_etl/data/*

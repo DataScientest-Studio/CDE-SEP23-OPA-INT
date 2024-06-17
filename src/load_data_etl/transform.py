@@ -10,18 +10,24 @@ from pyspark.sql import SparkSession
 import technical_indicators_spark as ti
 import etl_settings
 
+
 class Transform:
     def __init__(self):
         self.spark_db_connector = SparkDBConnector()
 
     def unzip(self, symbol):
-        path = "/" + get_path("spot", "klines", "daily", symbol, "1m")
+        path = "/load_data/" + get_path("spot", "klines", "daily", symbol, "1m")
         zip_files = [file for file in os.listdir(path) if file.endswith(".zip")]
+        all_files_were_unizpped = True
         for file in zip_files:
-            if file.endswith(".zip"):
+            try:
                 with ZipFile(path + file, 'r') as zip_ref:
                     zip_ref.extractall(path)
-                    # os.remove(path + file)
+            except Exception as e:
+                os.remove(path + file)
+                all_files_were_unizpped = False
+        
+        return all_files_were_unizpped
 
     def transform_and_load(self, symbol):
         spark = (SparkSession.builder.
@@ -31,7 +37,7 @@ class Transform:
                  getOrCreate())
 
         path = get_path("spot", "klines", "daily", symbol, "1m")
-        path = "/" + path
+        path = "/load_data/" + path
 
         raw_df = None
         schema = pyspark.sql.types.StructType([
@@ -48,7 +54,6 @@ class Transform:
             pyspark.sql.types.StructField("TBQ", pyspark.sql.types.DoubleType(), True),
             pyspark.sql.types.StructField("I", pyspark.sql.types.IntegerType(), True)
         ])
-
 
         csv_files = [file for file in os.listdir(path) if file.endswith(".csv")]
         for file in csv_files:
@@ -97,9 +102,10 @@ class Transform:
         rsi_50 = ti.rsi(50, avg_df)
         rsi_100 = ti.rsi(100, avg_df)
 
-
         avg_df = avg_df.drop("volume")
         kpi_dfs = [ewma_50, ewma_200, ewma_250, sma_50, sma_200, sma_250, rsi_20, rsi_50, rsi_100]
         for kpi_df in kpi_dfs:
-            avg_df = avg_df.union(kpi_df.select("dvkpi_timestamp", "dvkpi_timestamp_numeric", "dvkpi_kpi", "dvkpi_kpi_value", "dvkpi_symbol_id"))
+            avg_df = avg_df.union(
+                kpi_df.select("dvkpi_timestamp", "dvkpi_timestamp_numeric", "dvkpi_kpi", "dvkpi_kpi_value",
+                              "dvkpi_symbol_id"))
         return avg_df
