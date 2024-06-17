@@ -1,7 +1,7 @@
 import asyncio
 import os, time
 import pandas as pd
-from src.trading_bot_api import db_driver, binance_response_formatter as bf
+import db_driver, binance_response_formatter as bf
 import kpis as kpis
 import ml_training as ml_train
 import json
@@ -94,6 +94,10 @@ class TradingBot:
             while self.load_is_online():
                 res = await stream.recv()
                 res_dict = res["data"]["k"]
+                
+                if res_dict["x"] == False:
+                    continue
+                
                 yield f"open price: {res_dict['o']} close price: {res_dict['c']} \n"
                 res_dict_selected_keys = {key: res_dict[key] for key in keys_candles}
                 res_df = pd.DataFrame(res_dict_selected_keys, index=pd.Series(res_dict["s"]))
@@ -102,8 +106,6 @@ class TradingBot:
                 if time.time() - start_time > timeout_sec:
                     print(f"Closing klines stream after {timeout_sec} seconds")
                     break
-                # klines stream only every 60 seconds
-                await asyncio.sleep(60)
 
     async def make_trade_stream(self, api_key, api_secret, symbol, symbol_id, start_time, inv_amount,
                          forecast_timespan, timeout_sec, ml_model, ml_scaler):
@@ -186,7 +188,6 @@ class TradingBot:
 
 
     async def main_stream(self):
-
         self.client = await AsyncClient.create(self.api_key, self.api_secret, testnet=False)
         bsm = BinanceSocketManager(self.client, user_timeout=20)
 

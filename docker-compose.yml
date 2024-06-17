@@ -11,9 +11,9 @@ services:
       POSTGRES_PASSWORD: pgpassword123
       POSTGRES_DB: opa_db      
     ports:
-      - "5432:5432"  # Maps port 5432 on the host to port 5432 in the container
+      - "5432:5432"  
     volumes:
-      - db_data:/var/lib/postgresql/data  # Persistent data storage
+      - db_data:/var/lib/postgresql/data  
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready" ]
       interval: 10s
@@ -79,16 +79,16 @@ services:
     volumes:
       - data-volume:/load_data/data
 
-  # trading_bot_api:
-  #   container_name: trading_bot_api
-  #   build: ./src
-  #   restart: always
-  #   ports:
-  #     - "8086:8086"
-  #   depends_on:
-  #     - db
-  #   environment:
-  #     DB_CONN: "postgresql://db_user:pgpassword123@db/opa_db"
+  trading_bot_api:
+    container_name: trading_bot_api
+    build: ./src
+    restart: always
+    ports:
+      - "8086:8086"
+    depends_on:
+      - db
+    environment:
+      DB_CONN: "postgresql://db_user:pgpassword123@db/opa_db"
 
 volumes:
   data-volume:

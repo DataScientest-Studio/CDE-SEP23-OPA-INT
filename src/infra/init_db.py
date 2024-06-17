@@ -63,7 +63,7 @@ dvkpis_stream_table = Table('f_dvkpi_stream', metadata,
 
 models_table = Table('d_models', metadata,
                      Column('model_timestamp', TIMESTAMP(timezone=True)),
-                     Column('model_id', Integer),
+                     Column('model_id', Integer, autoincrement=True),
                      Column('model_active', String),
                      Column('model_filename', String),
                      Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),

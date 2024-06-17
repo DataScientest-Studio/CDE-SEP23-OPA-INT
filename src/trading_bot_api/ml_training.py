@@ -11,7 +11,7 @@ from keras.models import Sequential, load_model
 from keras.layers import Dense, LSTM, Dropout
 
 from sqlalchemy import create_engine, Table, MetaData, insert, select, update
-from src.trading_bot_api.db_driver import create_derived_kpis
+from db_driver import create_derived_kpis
 import api_settings
 
 lags_considered = 30
@@ -37,10 +37,14 @@ def createXY(dataset, n_past):
     return np.array(dataX), np.array(dataY)
 
 
-def estimate_new_model(db_url, table_name, symbol_id=1, num_epochs=30):
-    df_data = pd.read_csv("./datasets/f_dvkpi.csv", header=0)
-    if df_data is not None:
-        df_data.sort_values(by='dvkpi_timestamp', ascending=True, inplace=True)
+def estimate_new_model(symbol_id=1, num_epochs=30):
+    df_data = pd.read_sql("SELECT * FROM f_dvkpi", api_settings.db_conn)
+    print(df_data.head(100))
+    print(df_data.count())
+    
+    # df_data = pd.read_csv("./datasets/f_dvkpi.csv", header=0)
+    # if df_data is not None:
+    #     df_data.sort_values(by='dvkpi_timestamp', ascending=True, inplace=True)
     # Unpivot data
     df_data = df_data.pivot(index='dvkpi_timestamp', columns="dvkpi_kpi", values='dvkpi_kpi_value')
     # Remove NULL values
@@ -84,7 +88,7 @@ def estimate_new_model(db_url, table_name, symbol_id=1, num_epochs=30):
 
     # store model and scaler to disk
     keras_reg.model_.save('../models/' + model_name)
-    dump(scaler, './models/' + scaler_name, compress=True)
+    dump(scaler, '../models/' + scaler_name, compress=True)
 
     # log model in database
     insert_model_to_db(model_name, 'Y', symbol_id)
@@ -112,7 +116,7 @@ def load_scaler_file(scaler_file_name):
 
 
 def manipulate_data(X):
-    l_columns_ma = ["MA_50", "MA_200", "MA_250", "EWMA_50", "EWMA_200", "EWMA_250"]
+    l_columns_ma = ["SMA_50", "SMA_200", "SMA_250", "EWMA_50", "EWMA_200", "EWMA_250"]
     for column in l_columns_ma:
         # Replace the columns ewma_200 and ma_50 with their relative difference to the value in avg_price
         X[column] = (X[column] - X['AVG_PRICE']) / X['AVG_PRICE']
@@ -185,17 +189,8 @@ def insert_model_to_db(model_file_name, model_active, symbol_id=1):
         trans = connection.begin()
         try:
             tab_models = Table("d_models", MetaData(), autoload_with=engine)
-            stmt = select(tab_models.c.model_id)
-            result = connection.execute(stmt)
-            model_id = int(max(pd.DataFrame(result).values)) + 1 if result is not None else 1
-
-            if model_active == 'Y':
-                # set all other models to inactive
-                stmt = update(tab_models).where(tab_models.c.symbol_id == int(symbol_id)).values(model_active='N')
-                connection.execute(stmt)
 
             ins = insert(tab_models).values(model_timestamp=datetime.now(),
-                                            model_id=model_id,
                                             model_active=model_active,
                                             model_filename=model_file_name,
                                             symbol_id=int(symbol_id))

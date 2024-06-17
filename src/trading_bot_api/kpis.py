@@ -1,4 +1,4 @@
-from src.trading_bot_api import db_driver, technical_indicators as ti
+import db_driver, technical_indicators as ti
 import pandas as pd
 import api_settings as settings
 
