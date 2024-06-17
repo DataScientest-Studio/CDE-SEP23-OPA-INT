@@ -11,7 +11,7 @@ from keras.models import Sequential, load_model
 from keras.layers import Dense, LSTM, Dropout
 
 from sqlalchemy import create_engine, Table, MetaData, insert, select, update
-from cross_cutting.db_driver import create_derived_kpis
+from src.trading_bot_api.db_driver import create_derived_kpis
 import api_settings
 
 lags_considered = 30

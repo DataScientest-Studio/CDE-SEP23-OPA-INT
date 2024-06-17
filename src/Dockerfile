@@ -13,5 +13,7 @@ EXPOSE 8086
 
 WORKDIR /app/trading_bot_api
 
+RUN python3 /app/trading_bot_api/start_db.py
+
 CMD uvicorn  tradingbot_api:api --host 0.0.0.0 --port 8086
 

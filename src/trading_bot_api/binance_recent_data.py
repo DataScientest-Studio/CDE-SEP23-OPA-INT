@@ -3,8 +3,8 @@ from binance import Client
 import time
 import datetime
 import api_settings as api_settings
-import cross_cutting.db_driver as db_driver
-import cross_cutting.binance_response_formatter as bf
+import src.trading_bot_api.db_driver as db_driver
+import src.trading_bot_api.binance_response_formatter as bf
 
 def handle_binance_recent_data(filename_output, api_key, api_secret, symbol,data_type,
                                timespan_av_min, timespan_av_max, ts_start_date_numeric,

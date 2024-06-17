@@ -1,8 +1,7 @@
 import asyncio
 import os, time
 import pandas as pd
-from cross_cutting import db_driver
-from cross_cutting import binance_response_formatter as bf
+from src.trading_bot_api import db_driver, binance_response_formatter as bf
 import kpis as kpis
 import ml_training as ml_train
 import json

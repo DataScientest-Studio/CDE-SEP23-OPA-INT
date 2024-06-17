@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, Table, MetaData, select
 import pandas as pd
 import numpy as np
-from . import db_driver as dbd
+from src.trading_bot_api import db_driver as dbd
 
 
 def ewma(db_url, symbol_id, n_periods, df_klines=None):
