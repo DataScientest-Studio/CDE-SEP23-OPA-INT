@@ -1,21 +1,20 @@
 import asyncio
 import os, time
 import pandas as pd
-import binance_response_formatter as bf
-import db_driver
+import db_driver, binance_response_formatter as bf
+import kpis as kpis
 import ml_training as ml_train
 import json
+import api_settings
 
-from settings import Settings
 from binance import AsyncClient, BinanceSocketManager, Client
-from load_data import load_symbol_id, load_recent_data, create_derived_kpis, load_data_from_db_table
+import binance_recent_data as brd
 
-os.environ['TZ'] = 'UTC' # set timezone to UTC
+os.environ['TZ'] = 'UTC'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-# Define which keys to keep from streams
 keys_candles = ["t","o", "h", "l", "c", "v", "T", "q", "n", "B", "Q", "s"]
-db_url = Settings.get_setting("db_conn")
+db_url = api_settings.db_conn
 
 async_sleep_sec = 30
 
@@ -75,7 +74,7 @@ class TradingBot:
 
     def single_prediction(self):
         symbol_txt = self.coin + self.fiat_curr
-        symbol_id = load_symbol_id(symbol_txt)
+        symbol_id = db_driver.load_symbol_id(db_url, symbol_txt)
 
         model_file_name = ml_train.get_valid_model(db_url, symbol_id)[0]
         scaler_file_name = model_file_name.replace("model", "scaler").replace("keras", "bin")
@@ -83,8 +82,8 @@ class TradingBot:
         model = ml_train.load_model_file(model_file_name)
         scaler = ml_train.load_scaler_file(scaler_file_name)
 
-        dict_df_res = load_recent_data(self.api_key, self.api_secret, symbol_id)
-        df_input_prediction = create_derived_kpis(dict_df_res["klines"], symbol_id, create_from_predictions=False)
+        dict_df_res = brd.load_recent_data(self.api_key, self.api_secret, symbol_id)
+        df_input_prediction = kpis.create_derived_kpis(dict_df_res["klines"], symbol_id, create_from_predictions=False)
         return ml_train.get_predicted_data(model, scaler, df_input_prediction, symbol_id, self.forecast_timespan)
 
     async def get_kline_data_stream(self, bsm, symbol, start_time, timeout_sec):
@@ -95,16 +94,18 @@ class TradingBot:
             while self.load_is_online():
                 res = await stream.recv()
                 res_dict = res["data"]["k"]
+                
+                if res_dict["x"] == False:
+                    continue
+                
                 yield f"open price: {res_dict['o']} close price: {res_dict['c']} \n"
                 res_dict_selected_keys = {key: res_dict[key] for key in keys_candles}
                 res_df = pd.DataFrame(res_dict_selected_keys, index=pd.Series(res_dict["s"]))
                 res_df = bf.fix_klines_dataset(res_df, 1)
-                db_driver.insert_df_to_table(res_df, db_url, Settings.get_setting("klines_stream_table"))
+                db_driver.insert_df_to_table(res_df, db_url, api_settings.klines_stream_table)
                 if time.time() - start_time > timeout_sec:
                     print(f"Closing klines stream after {timeout_sec} seconds")
                     break
-                # klines stream only every 60 seconds
-                await asyncio.sleep(60)
 
     async def make_trade_stream(self, api_key, api_secret, symbol, symbol_id, start_time, inv_amount,
                          forecast_timespan, timeout_sec, ml_model, ml_scaler):
@@ -150,9 +151,6 @@ class TradingBot:
             raise Exception("Bot was shut down!")
 
 
-
-
-
     async def yield_predictions_and_current_price(self, current_price, predicted_price):
         """Generator for predictions and current price."""
         yield f"Create KPIs and predict price\n"
@@ -166,8 +164,8 @@ class TradingBot:
         current_price = bin_client.get_symbol_ticker(symbol=symbol)["price"]
         bin_client.close_connection()
 
-        df_klines = load_data_from_db_table(db_url, Settings.get_setting("klines_stream_table"))
-        df_input_prediction = create_derived_kpis(df_klines, symbol_id)
+        df_klines = db_driver.load_data_from_db_table(db_url, api_settings.klines_stream_table)
+        df_input_prediction = kpis.create_derived_kpis(df_klines, symbol_id)
         predicted_price = ml_train.get_predicted_data(ml_model, ml_scaler, df_input_prediction, symbol_id, forecast_timespan)
         self.yield_predictions_and_current_price(current_price, predicted_price)
 
@@ -190,12 +188,11 @@ class TradingBot:
 
 
     async def main_stream(self):
-
         self.client = await AsyncClient.create(self.api_key, self.api_secret, testnet=False)
         bsm = BinanceSocketManager(self.client, user_timeout=20)
 
         symbol_txt = self.coin + self.fiat_curr
-        symbol_id = load_symbol_id(symbol_txt)
+        symbol_id = db_driver.load_symbol_id(db_url, symbol_txt)
 
         model_file_name = ml_train.get_valid_model(db_url, symbol_id)[0]
         ml_model = ml_train.load_model_file(model_file_name)

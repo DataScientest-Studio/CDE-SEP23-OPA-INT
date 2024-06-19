@@ -1,9 +1,5 @@
-version: '3.8'
+version: '3.12'
 services:
-  # binance_connector:
-  #   build: .
-  #   depends_on:
-  #     - db
 
   db:
     container_name: postgres
@@ -15,14 +11,18 @@ services:
       POSTGRES_PASSWORD: pgpassword123
       POSTGRES_DB: opa_db      
     ports:
-      - "5432:5432"  # Maps port 5432 on the host to port 5432 in the container
+      - "5432:5432"  
     volumes:
-      - db_data:/var/lib/postgresql/data  # Persistent data storage
+      - db_data:/var/lib/postgresql/data  
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     container_name: pgadmin4
     image: dpage/pgadmin4
-    restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin123
@@ -31,6 +31,67 @@ services:
     depends_on:
       - db
 
+  start_infra:
+    build: ./src/infra
+    container_name: start_infra
+    environment:
+      DB_CONN: "postgresql://db_user:pgpassword123@db/opa_db"
+    depends_on:
+      db:
+          condition: service_healthy
+
+  spark-master:
+    build:
+      context: ./src/load_data_etl
+      dockerfile: Dockerfile
+    command: bin/spark-class org.apache.spark.deploy.master.Master
+    environment:
+      DOWNLOAD_YEAR: 2024
+    ports:
+      - "9090:8080"
+      - "7077:7077"
+    volumes:
+      - data-volume:/load_data/data
+
+  spark-worker-1:
+    image: bitnami/spark:3.5.1
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    depends_on:
+      - spark-master
+    environment:
+      SPARK_MODE: worker
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2g
+      SPARK_MASTER_URL: spark://spark-master:7077
+    volumes:
+      - data-volume:/load_data/data
+
+  spark-worker-2:
+    image: bitnami/spark:3.5.1
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    depends_on:
+      - spark-master
+    environment:
+      SPARK_MODE: worker
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2g
+      SPARK_MASTER_URL: spark://spark-master:7077
+    volumes:
+      - data-volume:/load_data/data
+
+  trading_bot_api:
+    container_name: trading_bot_api
+    build: ./src
+    restart: always
+    ports:
+      - "8086:8086"
+    depends_on:
+      - db
+    environment:
+      DB_CONN: "postgresql://db_user:pgpassword123@db/opa_db"
+
 volumes:
+  data-volume:
+    driver: local
   db_data:
-    name: db_data
+    driver: local

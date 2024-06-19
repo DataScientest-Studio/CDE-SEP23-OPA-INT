@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 import db_driver as dbd
 
-def ewma(db_url, symbol_id, n_periods, df_klines=None):
 
+def ewma(db_url, symbol_id, n_periods, df_klines=None):
     engine = create_engine(db_url)
     with engine.connect() as connection:
         try:

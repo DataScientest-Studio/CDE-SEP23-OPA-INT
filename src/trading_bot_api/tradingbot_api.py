@@ -1,16 +1,16 @@
-import json, sys, os
-from fastapi import FastAPI, Header, Query, Depends
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel, conlist, Field
+import json
 from enum import Enum
-from typing import Optional,Annotated
+from typing import Optional, Annotated
+
+from binance.client import Client
+from binance.exceptions import BinanceAPIException
+from fastapi import FastAPI, Depends
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from pydantic import BaseModel, Field
 
 import tradingbot as bot
-
-from binance.exceptions import BinanceAPIException
-from binance.client import Client
-
+import api_settings
 
 responses = {
     200: {"description": "Success"},
@@ -36,17 +36,9 @@ security = HTTPBasic(description="Pass your credentials (api_key as username, ap
 
 # Credentials
 
-def load_settings(settings_file_name):
-    with open(settings_file_name, "r") as settings_file:
-        return json.load(settings_file)
 
-
-# Read Settings
-settings_file_name = "./settings.json"
-settings = load_settings(settings_file_name)
-# Demo Credentials
-api_key = settings["api_key_demo"]
-api_sec = settings["api_key_secret_demo"]
+api_key = api_settings.api_key_demo
+api_sec = api_settings.api_key_secret_demo
 
 
 class FiatCurrenciesAllowed(str, Enum):
@@ -83,8 +75,6 @@ def get_price(symbol: str):
             status_code = 400,
             content= {"error": f"Error: {e}, symbols are case sensitive and must be in the format 'ETHUSDT'."}
         )
-
-
 
 
 @api.get('/wallet', name="Get funds in wallet", tags=["Wallet/ Portfolio"], responses=responses)
