@@ -12,5 +12,3 @@ done
 echo "All containers are ready."
 
 docker-compose exec -it spark-master python3 /load_data/run.py
-
-docker-compose exec -it trading_bot_api python3 create_fast_model.py
