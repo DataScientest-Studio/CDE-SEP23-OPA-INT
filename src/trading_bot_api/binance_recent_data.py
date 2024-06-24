@@ -1,7 +1,7 @@
 import pandas as pd
 from binance import Client
 import time
-import datetime
+from datetime import datetime
 import api_settings as api_settings
 import db_driver as db_driver
 import binance_response_formatter as bf
@@ -57,13 +57,13 @@ def load_recent_data(api_key, api_sec, symbol_id=1):
     l_data_type = ["klines"]
 
     dict_frames = {}
-    min_date_numeric = datetime.combine(datetime.date(2020, 1, 1), datetime.min.time()).timestamp() * 1000
+    min_date_numeric = datetime.combine(datetime(2020, 1, 1), datetime.min.time()).timestamp() * 1000
     ts_start_date_numeric = min_date_numeric
 
     # maximum timestamp available in Database
     # Bot needs at least 4 hours of data due to MA calculations
     # TODO: if it was called early in the morning adjust max_date_numeric
-    max_date_numeric = datetime.combine(datetime.date.today(), datetime.min.time()).timestamp() * 1000
+    max_date_numeric = datetime.combine(datetime.today(), datetime.min.time()).timestamp() * 1000
 
     for data_type in l_data_type:
         print(f"Fetching data on {data_type} for today, please wait")
