@@ -36,10 +36,8 @@ security = HTTPBasic(description="Pass your credentials (api_key as username, ap
 
 # Credentials
 
-
 api_key = api_settings.api_key_demo
 api_sec = api_settings.api_key_secret_demo
-
 
 class FiatCurrenciesAllowed(str, Enum):
     EUR = "EUR"

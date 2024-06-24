@@ -10,7 +10,8 @@ from joblib import dump, load
 from keras.models import Sequential, load_model
 from keras.layers import Dense, LSTM, Dropout
 
-from sqlalchemy import create_engine, Table, MetaData, insert, select, update
+from sqlalchemy import create_engine, Table, MetaData, insert, select
+from sqlalchemy.orm import sessionmaker
 from db_driver import create_derived_kpis
 import api_settings
 
@@ -39,12 +40,6 @@ def createXY(dataset, n_past):
 
 def estimate_new_model(symbol_id=1, num_epochs=30):
     df_data = pd.read_sql("SELECT * FROM f_dvkpi", api_settings.db_conn)
-    print(df_data.head(100))
-    print(df_data.count())
-    
-    # df_data = pd.read_csv("./datasets/f_dvkpi.csv", header=0)
-    # if df_data is not None:
-    #     df_data.sort_values(by='dvkpi_timestamp', ascending=True, inplace=True)
     # Unpivot data
     df_data = df_data.pivot(index='dvkpi_timestamp', columns="dvkpi_kpi", values='dvkpi_kpi_value')
     # Remove NULL values
@@ -53,15 +48,7 @@ def estimate_new_model(symbol_id=1, num_epochs=30):
     df_data.dropna(axis=0, how="any", inplace=True)
     split_percentage = 0.85
     split_point = round(len(df_data) * split_percentage)
-
-    # FI was removed during project times
-    try:
-        df_data.drop("FI_20", axis=1, inplace=True)
-        df_data.drop("FI_50", axis=1, inplace=True)
-        df_data.drop("FI_100", axis=1, inplace=True)
-    except:
-        pass
-
+    
     # Split Dataset
     train_data = pd.DataFrame(df_data.iloc[:split_point])
     test_data = pd.DataFrame(df_data.iloc[split_point:])
@@ -184,9 +171,9 @@ def get_valid_model(db_url, symbol_id=1):
 def insert_model_to_db(model_file_name, model_active, symbol_id=1):
     db_url = api_settings.db_conn
     engine = create_engine(db_url)
+    Session = sessionmaker(bind=engine)
 
-    with engine.connect() as connection:
-        trans = connection.begin()
+    with Session() as session:
         try:
             tab_models = Table("d_models", MetaData(), autoload_with=engine)
 
@@ -194,8 +181,11 @@ def insert_model_to_db(model_file_name, model_active, symbol_id=1):
                                             model_active=model_active,
                                             model_filename=model_file_name,
                                             symbol_id=int(symbol_id))
-            connection.execute(ins)
-            trans.commit()
+            
+            session.execute(ins)
+            session.commit()
+            
 
         except Exception as e:
             print(f"Error inserting model to database: {e}")
+            session.rollback()

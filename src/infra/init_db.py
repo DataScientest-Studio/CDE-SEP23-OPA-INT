@@ -1,7 +1,9 @@
 import os
 
 from sqlalchemy import MetaData, create_engine, Column, Table, TIMESTAMP, Numeric, ForeignKey, Integer, String, \
-    PrimaryKeyConstraint, select, insert
+    PrimaryKeyConstraint, insert
+    
+from sqlalchemy.orm import sessionmaker
 
 db_conn = os.getenv("DB_CONN", "postgresql://db_user:pgpassword123@localhost/opa_db")
 engine = create_engine(db_conn)
@@ -63,11 +65,10 @@ dvkpis_stream_table = Table('f_dvkpi_stream', metadata,
 
 models_table = Table('d_models', metadata,
                      Column('model_timestamp', TIMESTAMP(timezone=True)),
-                     Column('model_id', Integer, autoincrement=True),
+                     Column('model_id', Integer, autoincrement=True, primary_key=True),
                      Column('model_active', String),
                      Column('model_filename', String),
                      Column('symbol_id', Integer, ForeignKey('d_symbols.symbol_id')),
-                     PrimaryKeyConstraint('model_id', 'symbol_id', name='pk_models')
                      )
 
 
@@ -80,14 +81,18 @@ def create_db():
 
 
 def insert_initial_data():
-    with engine.connect() as connection:
-        stmt = select(symbols_table).where(symbols_table.c.symbol_id == 1)
-        result = connection.execute(stmt).fetchone()
-        if not result:
-            stmt = insert(symbols_table).values(symbol_id=1, symbol='ETHEUR')
-            connection.execute(stmt)
-            connection.commit()
-
+    Session = sessionmaker(bind=engine)
+    
+    with Session() as session:
+        stmt_symbol = insert(symbols_table).values(symbol_id=1, symbol='ETHEUR')
+        session.execute(stmt_symbol)
+        session.commit()
+        
+    with Session() as session:
+        stmt_model= insert(models_table).values(model_id=1, model_active='True', model_filename='lstm_model_20240525_15_25.keras', symbol_id=1)
+        session.execute(stmt_model)
+        session.commit()
+            
 
 create_db()
 insert_initial_data()
