@@ -5,5 +5,6 @@ COPY . /load_data
 RUN pip install -r /load_data/requirements.txt
 
 USER root
+RUN mkdir /load_data/data
 RUN chmod -R 777 /load_data
 USER 1001

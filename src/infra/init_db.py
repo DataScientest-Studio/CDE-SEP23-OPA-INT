@@ -89,7 +89,7 @@ def insert_initial_data():
         session.commit()
         
     with Session() as session:
-        stmt_model= insert(models_table).values(model_id=1, model_active='True', model_filename='lstm_model_20240525_15_25.keras', symbol_id=1)
+        stmt_model= insert(models_table).values(model_id=1, model_active='Y', model_filename='lstm_model_20240525_15_25.keras', symbol_id=1)
         session.execute(stmt_model)
         session.commit()
             
