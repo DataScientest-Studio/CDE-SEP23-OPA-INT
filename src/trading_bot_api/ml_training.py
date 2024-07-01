@@ -12,7 +12,9 @@ from keras.layers import Dense, LSTM, Dropout
 
 from sqlalchemy import create_engine, Table, MetaData, insert, select
 from sqlalchemy.orm import sessionmaker
-from db_driver import create_derived_kpis
+from kpis import create_derived_kpis as get_derived_kpis
+from db_driver import create_derived_kpis, create_derived_kpis_from_pred
+import technical_indicators as ti
 import api_settings
 
 lags_considered = 30
@@ -103,7 +105,8 @@ def load_scaler_file(scaler_file_name):
 
 
 def manipulate_data(X):
-    l_columns_ma = ["SMA_50", "SMA_200", "SMA_250", "EWMA_50", "EWMA_200", "EWMA_250"]
+
+    l_columns_ma = ["MA_50", "MA_200", "MA_250", "EWMA_50", "EWMA_200", "EWMA_250"]
     for column in l_columns_ma:
         # Replace the columns ewma_200 and ma_50 with their relative difference to the value in avg_price
         X[column] = (X[column] - X['AVG_PRICE']) / X['AVG_PRICE']
@@ -118,7 +121,7 @@ def get_predicted_data(model, scaler, X, symbol_id, holding_period=10):
 
     for i in range(0, holding_period):
         if i > 0:
-            X = create_derived_kpis(y_actual, symbol_id, create_from_predictions=True)
+            X = get_derived_kpis(y_actual, symbol_id, create_from_predictions=True)
 
         # Data Cleansing and Scaling
         X.drop_duplicates(inplace=True)
@@ -140,7 +143,7 @@ def get_predicted_data(model, scaler, X, symbol_id, holding_period=10):
         pred_scaled_reshaped_inv = scaler.inverse_transform(np.reshape(pred_scaled_repeated,
                                                                        (len(pred_scaled), 10)))[:,0]
         # now add the last actual value to the prediction to get actual price
-        pred_scaled_reshaped_inv = y_actual[-1] + pred_scaled_reshaped_inv[-1]
+        pred_scaled_reshaped_inv = y_actual.iloc[-1] + pred_scaled_reshaped_inv[-1]
         # Add datetime for prediction (next minute since we use 1min klines)
         pred_y_datetime = (pd.to_datetime(y_actual.index[-1], format='%Y-%m-%d %H:%M:%S', utc=True)
                            + pd.DateOffset(minutes=1))
@@ -189,3 +192,4 @@ def insert_model_to_db(model_file_name, model_active, symbol_id=1):
         except Exception as e:
             print(f"Error inserting model to database: {e}")
             session.rollback()
+

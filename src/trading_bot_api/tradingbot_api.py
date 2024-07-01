@@ -87,7 +87,19 @@ def get_wallet_balance(credentials: Annotated[HTTPBasicCredentials, Depends(secu
         api_key = creden.split('\n')[0]
         api_sec = creden.split('\n')[1]
 
+    # Check whether Credentials are okay
     bin_client = Client(api_key, api_sec, testnet=False)
+    try:
+        account = bin_client.get_account()
+        bin_client.close_connection()
+    except BinanceAPIException as e:
+        if e.status_code == 2014:
+            return f"Error: {e}", "Connection error, are your credentials correct?"
+        elif e.status_code == -1021:
+            return "Local computer time and Binance time differ, please resync time in local settings"
+        else:
+            return f"Error: {e}", "API Error"
+
     if coin:
         try:
             account_balances = bin_client.get_asset_balance(asset=coin)
@@ -134,15 +146,27 @@ def get_forecast(forecast: single_forecast,
         api_key = creden.split('\n')[0]
         api_sec = creden.split('\n')[1]
 
+    bin_client = Client(api_key, api_sec, testnet=False)
+    try:
+        account = bin_client.get_account()
+        bin_client.close_connection()
+    except BinanceAPIException as e:
+        if e.status_code == 2014:
+            return f"Error: {e}", "Connection error, are your credentials correct?"
+        elif e.status_code == -1021:
+            return "Local computer time and Binance time differ, please resync time in local settings"
+        else:
+            return f"Error: {e}", "API Error"
+
     tb = bot.TradingBot(api_key, api_sec, forecast.coin, forecast.fiat_curr, inv_amount,
                         forecast.forecast_timespan, timeout_sec, True)
-    tb.is_online = True
-
+    tb.set_online(True)
     try:
         bin_client = Client(api_key, api_sec, testnet=True)
         current_price = bin_client.get_symbol_ticker(symbol=symbol)["price"]
         bin_client.close_connection()
         prediction = tb.single_prediction()
+        tb.set_online(False)
         return f"Current Price: {current_price}, Predicted Price: {prediction}"
     except IndexError:
         return (f"Error: Could not make a forecast, please check whether a model exists for your symbol or"
@@ -162,6 +186,14 @@ def start_trading_bot(tbs: trading_bot_settings,
         api_key = creden.split('\n')[0]
         api_sec = creden.split('\n')[1]
 
+    # Check whether Credentials are okay
+    bin_client = Client(api_key, api_sec, testnet=False)
+    try:
+        account = bin_client.get_account()
+        bin_client.close_connection()
+    except BinanceAPIException as e:
+        return "Connection error, are your credentials correct?"
+
     try:
         # Read the bot status from a file
         with open('is_online.json', 'r') as file:
@@ -170,6 +202,7 @@ def start_trading_bot(tbs: trading_bot_settings,
                 return f"Your bot is already online and monitoring markets, close it first!"
     except FileNotFoundError:
         pass
+
     try:
         tb = bot.TradingBot(api_key, api_sec, tbs.coin, tbs.fiat_curr, tbs.inv_amount, tbs.forecast_timespan,
                                 tbs.timeout_sec, False)
@@ -190,9 +223,6 @@ def stop_trading_bot(credentials: Annotated[HTTPBasicCredentials, Depends(securi
         api_key = creden.split('\n')[0]
         api_sec = creden.split('\n')[1]
 
-    tb = bot.TradingBot(api_key, api_sec, "ETH", "EUR", 100,
-                        5, 60, False)
-
     try:
         # Read the bot status from a file
         with open('is_online.json', 'r') as file:
@@ -207,17 +237,3 @@ def stop_trading_bot(credentials: Annotated[HTTPBasicCredentials, Depends(securi
     except FileNotFoundError:
         return "Bot was already offline, you can start a new session!"
 
-
-@api.get('/test')
-async def test_stream(credentials: Annotated[HTTPBasicCredentials, Depends(security)]):
-    if credentials and not (credentials.username == "local" and credentials.password == "file"):
-        api_key = credentials.username
-        api_sec = credentials.password
-    else:
-        f = open("./binance_api_key.txt", "r")
-        creden = f.read()
-        api_key = creden.split('\n')[0]
-        api_sec = creden.split('\n')[1]
-    tb = bot.TradingBot(api_key, api_sec, "ETH", "EUR", 100, 5,180, False)
-    tb.set_online(True)
-    return StreamingResponse(tb.main_stream(), media_type='text/event-stream')

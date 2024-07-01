@@ -8,7 +8,7 @@ from pyspark.sql.window import Window
 def simple_ma(n_periods: int, avg_df: pyspark.sql.dataframe) -> pyspark.sql.dataframe:
     windowSpec = Window.orderBy(col("dvkpi_timestamp")).rowsBetween(-n_periods, 0)
     df = (avg_df.drop('dvkpi_kpi'). \
-          withColumn("dvkpi_kpi", lit(f"SMA_{n_periods}")). \
+          withColumn("dvkpi_kpi", lit(f"MA_{n_periods}")). \
           withColumn("moving_avg", avg(col("dvkpi_kpi_value")).over(windowSpec)). \
           drop("dvkpi_kpi_value").withColumnRenamed("moving_avg", "dvkpi_kpi_value"))
 

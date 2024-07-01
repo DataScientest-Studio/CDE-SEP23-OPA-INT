@@ -6,7 +6,7 @@ import kpis as kpis
 import ml_training as ml_train
 import json
 import api_settings
-
+import heapq
 from binance import AsyncClient, BinanceSocketManager, Client
 import binance_recent_data as brd
 
@@ -17,6 +17,7 @@ keys_candles = ["t","o", "h", "l", "c", "v", "T", "q", "n", "B", "Q", "s"]
 db_url = api_settings.db_conn
 
 async_sleep_sec = 30
+
 
 class TradingBot:
     def __init__(self, api_key, api_secret, coin, fiat_curr, inv_amount, forecast_timespan, timeout_sec, flag_use_demo_acc):
@@ -94,29 +95,30 @@ class TradingBot:
             while self.load_is_online():
                 res = await stream.recv()
                 res_dict = res["data"]["k"]
-                
-                if res_dict["x"] == False:
-                    continue
-                
                 yield f"open price: {res_dict['o']} close price: {res_dict['c']} \n"
                 res_dict_selected_keys = {key: res_dict[key] for key in keys_candles}
                 res_df = pd.DataFrame(res_dict_selected_keys, index=pd.Series(res_dict["s"]))
                 res_df = bf.fix_klines_dataset(res_df, 1)
                 db_driver.insert_df_to_table(res_df, db_url, api_settings.klines_stream_table)
-                if time.time() - start_time > timeout_sec:
-                    print(f"Closing klines stream after {timeout_sec} seconds")
+                if (time.time() - start_time) > timeout_sec:
+                    yield f"Closing klines stream after {timeout_sec} seconds"
                     break
+                # klines stream only every 60 seconds
+                await asyncio.sleep(async_sleep_sec)
+        if not self.load_is_online():
+            yield f"Closing klines stream after {timeout_sec} seconds"
 
     async def make_trade_stream(self, api_key, api_secret, symbol, symbol_id, start_time, inv_amount,
                          forecast_timespan, timeout_sec, ml_model, ml_scaler):
         """Generator for making trades. Yields the investment decisions."""
         closed_due_to_timeout = False
-        while (time.time() - start_time < timeout_sec) and self.load_is_online():
+
+        while ((time.time() - start_time) < timeout_sec) and self.load_is_online():
             trade = await self.make_investment_decision_stream(api_key, api_secret, symbol, symbol_id,
                                            forecast_timespan, ml_model, ml_scaler)
 
-            if time.time() - start_time > max(60, timeout_sec):
-                yield f"Closing Bot", max(60, timeout_sec), "seconds\n"
+            if (time.time() - start_time) > max(60, timeout_sec):
+                yield f"Closing Bot after", max(60, timeout_sec), "seconds\n"
                 yield f"Your Fiat currency balance: {self.position_fiat} Your Crypto balance: {self.position_crypto} \n"
                 self.set_online(False)
                 closed_due_to_timeout = True
@@ -150,6 +152,11 @@ class TradingBot:
         if self.load_is_online() == False and closed_due_to_timeout == False:
             raise Exception("Bot was shut down!")
 
+        if (time.time() - start_time) > max(60, timeout_sec):
+            yield f"Closing Bot after", max(60, timeout_sec), "seconds\n"
+            yield f"Your Fiat currency balance: {self.position_fiat} Your Crypto balance: {self.position_crypto} \n"
+            self.set_online(False)
+            closed_due_to_timeout = True
 
     async def yield_predictions_and_current_price(self, current_price, predicted_price):
         """Generator for predictions and current price."""
@@ -166,7 +173,8 @@ class TradingBot:
 
         df_klines = db_driver.load_data_from_db_table(db_url, api_settings.klines_stream_table)
         df_input_prediction = kpis.create_derived_kpis(df_klines, symbol_id)
-        predicted_price = ml_train.get_predicted_data(ml_model, ml_scaler, df_input_prediction, symbol_id, forecast_timespan)
+        predicted_price = ml_train.get_predicted_data(ml_model, ml_scaler, df_input_prediction, symbol_id,
+                                                      forecast_timespan)
         self.yield_predictions_and_current_price(current_price, predicted_price)
 
         # A buy decision is positive if the predicted price is higher than the current price!
@@ -199,6 +207,8 @@ class TradingBot:
 
         scaler_file_name = model_file_name.replace("model", "scaler").replace("keras", "bin")
         ml_scaler = ml_train.load_scaler_file(scaler_file_name)
+        # Function deletes all data from the klines_stream_table and inserts it again
+        dict_df_res = brd.load_recent_data(self.api_key, self.api_secret, symbol_id)
 
         start_time = time.time()
         yield "Starting TradingBot!\n"
@@ -208,21 +218,26 @@ class TradingBot:
             async for result in self.make_trade_stream(self.api_key, self.api_secret, symbol_txt, symbol_id, start_time,
                                                        self.inv_amount, self.forecast_timespan, self.timeout_sec,
                                                        ml_model, ml_scaler):
-                results.append(result)
+                #results.append(result)
+                results.append((time.time(), result))
             return results
 
         async def get_kline_data_stream_wrapper():
             results = []
             async for result in self.get_kline_data_stream(bsm, symbol_txt, start_time, self.timeout_sec):
-                results.append(result)
+                #results.append(result)
+                results.append((time.time(), result))
             return results
 
         # Run the wrapper coroutines concurrently and yield the results
         try:
             results = await asyncio.gather(make_trade_stream_wrapper(), get_kline_data_stream_wrapper())
-            for result_list in results:
-                for result in result_list:
-                    yield result
+            merged_results = heapq.merge(*results, key=lambda x: x[0])
+            for timestamp, result in merged_results:
+                yield json.dumps({'msg': result}) + '\n'
+            #for result_list in results:
+            #    for result in result_list:
+            #        yield result
         except Exception as e:
             yield "An Exception occurred, probably the bot was shut down!\n"
 
