@@ -42,6 +42,17 @@ If DOWNLOAD_YEAR is set to 2022. It will download one file per day from 01-01-20
 
 The api of the trading bot will be available on port 8086
 
+The Bot is callable via API and monitors the market until a user defined timeout is reached. Throughout this monitoring 
+period the bot makes investment decisions by constantly predicting future prices and comparing it to the most recent one.
+Thus, the user can for instance specify that he wants to have the bot running for two hours and within this time, the bot will trade.
+
+Predictions are based on a pre-trained LSTM Model (Deep Neural Network). Note that since the Model can - given historical data - only 
+predict the next kline price, a prediction for multiple Minutes ahead (i.e. the price in 10min) depends on predicted prices 
+itself (e.g. predicted price in 9, 8, 7 ... 1 Minute).
+
+Note that trading is not done with actual wallet funds but hypothetical ones.
+
+Further info on how to handle requests can be found in the FastAPI documentation: 127.0.0.1:8086/docs
 
 ### DB Access
     * user:db_user 
