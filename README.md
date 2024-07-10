@@ -1,6 +1,7 @@
 # CDE-SEP23-OPA-INT
 
 This project creates a bot that uses a trained model based on clandesticks data for ETHEUR and take decisions regarding buy or not
+![Architecture](docs/arch.png)
 
 
 ## Modules
